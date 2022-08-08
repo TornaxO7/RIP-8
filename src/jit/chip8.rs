@@ -6,7 +6,7 @@ pub type Vx = u8;
 pub type Vy = u8;
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Chip8Opcode {
     CLS,
     RET,
@@ -69,6 +69,15 @@ impl From<Opcode> for Chip8Opcode {
             0xF => handle_f(opcode),
             _ => unreachable!(),
 
+        }
+    }
+}
+
+impl Chip8Opcode {
+    pub fn is_branch(&self) -> bool {
+        match self {
+            Self::RET | Self::SYS(_) | Self::JP1(_) | Self::CALL(_) | Self::JP2(_) => true,
+            _ => false,
         }
     }
 }
@@ -140,7 +149,7 @@ fn get_n_or_nibble(opcode: Opcode) -> u8 {
 }
 
 fn get_x(opcode: Opcode) -> u8 {
-    u8::try_from((opcode >> 0b1111_1111) & 0b1111).unwrap()
+    u8::try_from((opcode >> 8) & 0b1111).unwrap()
 }
 
 fn get_y(opcode: Opcode) -> u8 {
