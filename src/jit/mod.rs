@@ -3,108 +3,63 @@ mod x86;
 
 use std::path::Path;
 use std::fs::read;
+use std::collections::HashMap;
 
-use self::{chip8::Chip8Opcode, x86::x86Opcode};
+use chip8::Chip8Instruction;
 
-pub type Address = usize;
+pub type Addr = usize;
+pub type Chip8Block = Vec<Chip8Instruction>;
+pub type x86Block = Vec<u8>;
 
-const INSTRUCTION_SIZE: usize = 16;
+const INSTRUCTION_SIZE: usize = 2;
 
 #[derive(Debug)]
 pub struct JIT {
-    chip8_binary_opcodes: Vec<chip8::Opcode>,
-    chip8_opcode_buffer: Vec<Chip8Opcode>,
-    x86_opcode_buffer: Vec<x86Opcode>,
-    pc: Address,
+    file_content: Vec<u8>,
+    blocks: HashMap<Addr, x86Block>,
+    chip_addr: Addr,
 }
 
 impl JIT {
+    const START_ADDR: Addr = 0x200;
+
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        let binary_content = read(path).unwrap();
         Self {
-            chip8_binary_opcodes: convert_bytes_to_chip8_opcodes(binary_content),
-            chip8_opcode_buffer: Vec::new(),
-            x86_opcode_buffer: Vec::new(),
-            pc: 0,
+            file_content: read(path).expect("Couldn't load binary file"),
+            blocks: HashMap::new(),
+            chip_addr: Self::START_ADDR,
         }
     }
 
     pub fn run(&mut self) {
         loop {
-            self.decode_to_branch();
-            self.get_x86_opcodes();
-            self.execute_rest();
+            if self.block_not_already_compiled() {
+                let block: x86Block = self.compile_block();
+                self.blocks.insert(self.chip_addr, block);
+            }
+
+            let execution_block = self.blocks.get(&self.chip_addr)
+                .unwrap();
+
+            self.execute_block(execution_block);
         }
     }
 
-    fn decode_to_branch(&mut self) {
-        self.chip8_opcode_buffer.clear();
-        self.decode_next_opcode();
-
-        while !self.chip8_opcode_buffer.last().unwrap().is_branch() {
-            self.decode_next_opcode();
-        }
+    fn block_not_already_compiled(&self) -> bool {
+        self.blocks.get(&self.chip_addr).is_none()
     }
 
-    fn decode_next_opcode(&mut self) {
-        let next_opcode: chip8::Opcode = self.chip8_binary_opcodes[self.pc];
-        let next_opcode: Chip8Opcode = Chip8Opcode::from(next_opcode);
-        self.chip8_opcode_buffer.push(next_opcode);
+    fn compile_block(&mut self) -> x86Block {
+        let parsed_block = chip8::parse_until_next_branch(&self.file_content, &mut self.chip_addr);
 
-        if next_opcode.is_branch() {
-            self.adjust_pc_for_branch(next_opcode);
-        } else {
-            self.pc += INSTRUCTION_SIZE;
-        }
+        self.recompile_to_x86(parsed_block)
     }
 
-    fn adjust_pc_for_branch(&mut self, branch_opcode: Chip8Opcode) {
-        todo!("Yeetus deletus!");
+    fn execute_block(&self, execution_block: &x86Block) {
     }
 
-    fn get_x86_opcodes(&mut self) {}
-
-    fn execute_rest(&mut self) {}
-}
-
-fn convert_bytes_to_chip8_opcodes(binary_content: Vec<u8>) -> Vec<chip8::Opcode> {
-    let mut chip8_binary_opcodes = Vec::new();
-    let mut iterator = binary_content.iter();
-    while let Some(&byte) = iterator.next() {
-        let mut opcode: chip8::Opcode = u16::from(byte) << 8;
-
-        if let Some(&byte2) = iterator.next() {
-            opcode |= u16::from(byte2);
-        }
-
-        chip8_binary_opcodes.push(opcode);
+    fn recompile_to_x86(&self, chip_block: Chip8Block) -> x86Block {
+        todo!()
     }
 
-    chip8_binary_opcodes
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::convert_bytes_to_chip8_opcodes;
-
-    #[test]
-    fn test_new_general() {
-        let binaries: Vec<u8> = vec![0xaa, 0xbb, 0xcc, 0xdd];
-        let opcodes = convert_bytes_to_chip8_opcodes(binaries);
-
-        let expected = vec![0xaabb, 0xccdd];
-
-        assert_eq!(expected, opcodes);
-    }
-
-    #[test]
-    fn test_missing_half() {
-        let binaries: Vec<u8> = vec![0xaa, 0xbb, 0xcc];
-        let opcodes = convert_bytes_to_chip8_opcodes(binaries);
-
-        let expected = vec![0xaabb, 0xcc00];
-
-        assert_eq!(expected, opcodes);
-    }
 }
