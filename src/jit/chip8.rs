@@ -13,7 +13,7 @@ pub fn parse_until_next_branch(binary_content: &Vec<u8>, addr: &mut Addr) -> Chi
     while !instruction.is_branch() {
         block.push(instruction);
     }
-
+    block.push(instruction);
     block
 }
 

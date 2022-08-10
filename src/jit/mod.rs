@@ -6,10 +6,11 @@ use std::fs::read;
 use std::collections::HashMap;
 
 use chip8::Chip8Instruction;
+use x86::x86Instruction;
 
 pub type Addr = usize;
 pub type Chip8Block = Vec<Chip8Instruction>;
-pub type x86Block = Vec<u8>;
+pub type x86Block = Vec<x86Instruction>;
 
 const INSTRUCTION_SIZE: usize = 2;
 
@@ -55,11 +56,17 @@ impl JIT {
         self.recompile_to_x86(parsed_block)
     }
 
-    fn execute_block(&self, execution_block: &x86Block) {
+    fn execute_block(&mut self, execution_block: &x86Block) {
+        self.chip_addr = unsafe {
+            (*x86Block[0])()
+        };
     }
 
     fn recompile_to_x86(&self, chip_block: Chip8Block) -> x86Block {
-        todo!()
+        chip_block
+            .iter()
+            .flat_map(x86Instruction::from_chip8)
+            .collect()
     }
 
 }
