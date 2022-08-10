@@ -1,0 +1,63 @@
+use crate::cache::{Cache, CompileBlock};
+use crate::jit::JIT;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Chip8State {
+    mem: [u8; Chip8::MEM_SIZE],
+    regs: [u8; Chip8::AMOUNT_REGISTERS],
+    i: u16,
+    delay: u8,
+    sound: u8,
+    pc: u16,
+    sp: u8,
+    stack: [u16; Chip8::MAX_AMOUNT_STACK],
+}
+
+#[derive(Debug)]
+pub struct Chip8 {
+    state: Chip8State,
+    cache: Cache,
+}
+
+impl Chip8 {
+    pub const MEM_SIZE: usize = 4096;
+    pub const AMOUNT_REGISTERS: usize = 16;
+    pub const START_ADDRESS: u16 = 0x200;
+    pub const MAX_AMOUNT_STACK: usize = 16;
+
+    pub fn new(binary_content: Vec<u8>) -> Self {
+        if !binary_is_valid(&binary_content) {
+            panic!("ROM is too big");
+        }
+
+        let mut mem = [0; Chip8::MEM_SIZE];
+        for (index, &value) in binary_content.iter().enumerate() {
+            mem[index] = value;
+        }
+
+        Self {
+            state: Chip8State {
+                mem,
+                regs: [0; Chip8::AMOUNT_REGISTERS],
+                i: 0,
+                delay: 0,
+                sound: 0,
+                pc: Self::START_ADDRESS,
+                sp: 0,
+                stack: [0; Chip8::MAX_AMOUNT_STACK],
+            },
+            cache: Cache::new(),
+        }
+    }
+
+    pub fn run(&mut self) {
+        loop {
+            let block = self.cache.get_or_compile(&self.state);
+            block.execute();
+        }
+    }
+}
+
+fn binary_is_valid(binary: &Vec<u8>) -> bool {
+    binary.len() <= Chip8::MEM_SIZE
+}

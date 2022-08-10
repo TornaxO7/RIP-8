@@ -2,7 +2,11 @@
 name = "rip8"
 version = "0.1.0"
 edition = "2021"
+authors = ["TornaxO7 <tornax07@gmail.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+fnv = "1.0.7"
+memmap = "0.7.0"
+clap = { version =  "3.2.16", features = ["cargo"] }
