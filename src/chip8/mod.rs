@@ -1,21 +1,26 @@
-use crate::cache::{Cache, CompileBlock};
-use crate::jit::JIT;
+mod instruction;
+use crate::ChipAddr;
+use crate::cache::Cache;
 
+use std::rc::Rc;
+use std::cell::RefCell;
+
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Chip8State {
-    mem: [u8; Chip8::MEM_SIZE],
-    regs: [u8; Chip8::AMOUNT_REGISTERS],
-    i: u16,
-    delay: u8,
-    sound: u8,
-    pc: u16,
-    sp: u8,
-    stack: [u16; Chip8::MAX_AMOUNT_STACK],
+    pub mem: [u8; Chip8::MEM_SIZE],
+    pub regs: [u8; Chip8::AMOUNT_REGISTERS],
+    pub i: u16,
+    pub delay: u8,
+    pub sound: u8,
+    pub pc: u16,
+    pub sp: u8,
+    pub stack: [u16; Chip8::MAX_AMOUNT_STACK],
 }
 
 #[derive(Debug)]
 pub struct Chip8 {
-    state: Chip8State,
+    state: Rc<RefCell<Chip8State>>,
     cache: Cache,
 }
 
@@ -36,7 +41,7 @@ impl Chip8 {
         }
 
         Self {
-            state: Chip8State {
+            state: Rc::new(RefCell::new(Chip8State {
                 mem,
                 regs: [0; Chip8::AMOUNT_REGISTERS],
                 i: 0,
@@ -45,7 +50,7 @@ impl Chip8 {
                 pc: Self::START_ADDRESS,
                 sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
-            },
+            })),
             cache: Cache::new(),
         }
     }

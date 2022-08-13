@@ -3,6 +3,10 @@ use fnv::FnvHashMap;
 
 use crate::ChipAddr;
 use crate::chip8::Chip8State;
+use crate::jit;
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Cache {
@@ -16,8 +20,9 @@ impl Cache {
         }
     }
 
-    pub fn get_or_compile(&self, state: &Chip8State) -> CompileBlock {
-        todo!()
+    pub fn get_or_compile(&mut self, state: &Rc<RefCell<Chip8State>>) -> &CompileBlock {
+        let pc = state.borrow().pc;
+        self.blocks.entry(pc).or_insert(jit::compile(&state))
     }
 }
 

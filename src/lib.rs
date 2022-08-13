@@ -3,6 +3,7 @@ pub mod translator;
 pub mod emitter;
 pub mod jit;
 pub mod chip8;
+pub mod x86;
 
 pub type ChipAddr = u16;
 
