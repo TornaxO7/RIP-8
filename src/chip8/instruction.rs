@@ -2,8 +2,10 @@ use crate::ChipAddr;
 
 pub type Vx = u8;
 pub type Vy = Vx;
+#[allow(non_camel_case_types)]
 pub type byte = u8;
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Instruction {
     CLS,

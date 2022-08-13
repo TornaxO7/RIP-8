@@ -27,11 +27,15 @@ impl<'a> JIT<'a> {
         todo!()
     }
 
-    fn prolog(&mut self) {
+    fn create_stack_frame(&mut self) {
+        self.reserve_regs();
         todo!();
     }
 
     fn epilog(&mut self) {
         todo!();
+    }
+
+    fn reserve_regs(&mut self) {
     }
 }
