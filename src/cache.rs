@@ -1,4 +1,4 @@
-use memmap::MmapMut;
+use memmap2::MmapMut;
 use fnv::FnvHashMap;
 
 use crate::ChipAddr;
