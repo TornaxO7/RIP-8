@@ -15,7 +15,7 @@ impl Frame for ChipState {
     }
 
     fn epilog(&self, jit: &mut JIT<'_>) -> Result<(), iced_x86::IcedError> {
-        jit.x86.pop(rax)?;
+        jit.x86.sub(rsp, JIT::QUAD_WORD)?;
         Ok(())
     }
 }

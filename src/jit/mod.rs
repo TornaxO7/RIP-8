@@ -33,6 +33,8 @@ pub struct JIT<'a> {
 }
 
 impl<'a> JIT<'a> {
+    pub const QUAD_WORD: i32 = 64;
+
     const BITNESS: u32 = 16;
     const STEPS: [&'static dyn Frame; 2] = [
         &StackFrame as &dyn Frame,
