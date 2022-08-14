@@ -131,6 +131,7 @@ dependencies = [
  "clap",
  "fnv",
  "iced-x86",
+ "lazy_static",
  "memmap2",
 ]
 

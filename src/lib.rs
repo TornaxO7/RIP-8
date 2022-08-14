@@ -1,8 +1,8 @@
 pub mod cache;
-pub mod translator;
+pub mod chip8;
 pub mod emitter;
 pub mod jit;
-pub mod chip8;
+pub mod translator;
 
 pub type ChipAddr = u16;
 
