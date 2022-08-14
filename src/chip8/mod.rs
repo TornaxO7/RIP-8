@@ -1,4 +1,3 @@
-mod instruction;
 use crate::cache::Cache;
 
 use std::rc::Rc;

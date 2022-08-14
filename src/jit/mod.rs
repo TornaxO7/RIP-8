@@ -1,16 +1,37 @@
 mod frames;
+mod fn_implementation;
+mod fn_traits;
+mod fn_trait_impl;
 
 use frames::{StackFrame, ChipState};
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::convert::From;
 
+use crate::ChipAddr;
 use crate::cache::CompileBlock;
 use crate::chip8::Chip8State;
 
 use iced_x86::code_asm::CodeAssembler;
 use iced_x86::IcedError;
 use memmap2::MmapMut;
+
+const INSTRUCTION_SIZE: u16 = 16;
+
+pub type InstructionResult = Result<bool, IcedError>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Vx(pub u8);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Vy(pub u8);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Byte(pub u8);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Addr(pub u16);
 
 pub fn compile(state: &Rc<RefCell<Chip8State>>) -> CompileBlock {
     let mut jit = JIT::new(state);
@@ -28,6 +49,7 @@ pub trait Frame {
 }
 
 pub struct JIT<'a> {
+    start_pc: u16,
     pub chip_state: &'a Rc<RefCell<Chip8State>>,
     pub x86: CodeAssembler,
 }
@@ -42,7 +64,9 @@ impl<'a> JIT<'a> {
     ];
 
     fn new(chip_state: &'a Rc<RefCell<Chip8State>>) -> Self {
+        let start_pc = chip_state.borrow().pc;
         Self {
+            start_pc,
             chip_state,
             x86: CodeAssembler::new(Self::BITNESS).unwrap(),
         }
@@ -50,6 +74,8 @@ impl<'a> JIT<'a> {
 
     fn compile(&mut self) -> Result<CompileBlock, IcedError> {
         self.prolog()?;
+
+        self.recompile_chip8()?;
 
         self.epilog()?;
         self.get_compiled_block()
@@ -63,7 +89,7 @@ impl<'a> JIT<'a> {
 
         Ok(CompileBlock {
             code,
-            start_addr: pc,
+            start_addr: self.start_pc,
         })
     }
 
@@ -82,4 +108,80 @@ impl<'a> JIT<'a> {
 
         Ok(())
     }
+
+    fn recompile_chip8(&mut self) -> Result<(), IcedError> {
+        let mut pc: ChipAddr = self.chip_state.borrow().pc;
+
+        while self.compile_next_instruction(pc) {
+            pc += INSTRUCTION_SIZE;
+        }
+
+        Ok(())
+    }
+
+    fn compile_next_instruction(&mut self, addr: ChipAddr) -> bool {
+        let start_addr = usize::from(addr);
+        let end_addr = start_addr + usize::from(INSTRUCTION_SIZE);
+        let slice: [u8; 2] = self.chip_state.borrow().mem[start_addr..end_addr].try_into().unwrap();
+        let wordbyte = u16::from_le_bytes(slice);
+
+        self.compile_instruction(wordbyte)
+            .unwrap()
+    }
+
+    fn compile_instruction(&mut self, instruction: u16) -> Result<bool, IcedError> {
+        let nibbles: [u8; 4] = [
+            u8::try_from((instruction & 0xf000) >> 12).unwrap(),
+            u8::try_from((instruction & 0x0f00) >> 8).unwrap(),
+            u8::try_from((instruction & 0x00f0) >> 4).unwrap(),
+            u8::try_from(instruction & 0x000f).unwrap(),
+        ];
+
+        let x: Vx = Vx(nibbles[1]);
+        let y: Vy = Vy(nibbles[2]);
+        let kk: Byte = Byte(u8::try_from(instruction & 0x00ff).unwrap());
+        let nnn: Addr = Addr(instruction & 0x0fff);
+        match (nibbles[0], nibbles[1], nibbles[2], nibbles[3]) {
+            (0x0, 0x0, 0xe, 0x0) => self.cls(),
+            (0x0, 0x0, 0xe, 0xe) => self.ret(),
+            (0x0, _, _, _) => self.sys(nnn),
+            (0x1, _, _, _) => self.jp(nnn),
+            (0x2, _, _, _) => self.call(nnn),
+            (0x3, _, _, _) => self.se(x, kk),
+            (0x4, _, _, _) => self.sne(x, kk),
+            (0x5, _, _, _) => self.se(x, y),
+            (0x6, _, _, _) => self.ld(x, kk),
+            (0x7, _, _, _) => self.add(x, kk),
+            (0x8, _, _, 0) => self.ld(x, y),
+            (0x8, _, _, 1) => self.or(x, y),
+            (0x8, _, _, 2) => self.and(x, y),
+            (0x8, _, _, 3) => self.xor(x, y),
+            (0x8, _, _, 4) => self.add(x, y),
+            (0x8, _, _, 5) => self.sub(x, y),
+            (0x8, _, _, 6) => self.shr(x, y),
+            (0x8, _, _, 7) => self.subn(x, y),
+            (0x8, _, _, 0xe) => self.shl(x, y),
+            (0x9, _, _, 0) => self.sne(x, y),
+            (0xa, _, _, _) => self.ld_i(nnn),
+            (0xb, _, _, _) => self.ld_v0(nnn),
+            (0xc, _, _, _) => self.rnd(x, kk),
+            (0xd, _, _, nibble) => self.drw(x, y, nibble),
+            (0xe, _, 0x9, 0xe) => self.skp(x),
+            (0xe, _, 0xa, 0x1) => self.sknp(x),
+            (0xf, _, 0x0, 0x7) => self.ld_x_dt(x),
+            (0xf, _, 0x0, 0xa) => self.ld_k(x),
+            (0xf, _, 0x1, 0x5) => self.ld_dt_x(x),
+            (0xf, _, 0x1, 0x8) => self.ld_st(x),
+            (0xf, _, 0x1, 0xe) => self.add_i(x),
+            (0xf, _, 0x2, 0x9) => self.ld_f(x),
+            (0xf, _, 0x3, 0x3) => self.ld_b(x),
+            (0xf, _, 0x5, 0x5) => self.ld_i_x(x),
+            (0xf, _, 0x6, 0x5) => self.ld_x_i(x),
+            _ => unreachable!("Reached unknown instruction: {:#x}", instruction),
+        }
+    }
+}
+
+fn merge_nibbles(n1: u8, n2: u8) -> u8 {
+    (n1 << 4) | n2
 }
