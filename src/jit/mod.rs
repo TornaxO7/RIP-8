@@ -178,4 +178,9 @@ impl<'a> JIT<'a> {
             _ => unreachable!("Reached unknown instruction: {:#x}", instruction),
         }
     }
+
+    fn get_pc_state_address(&self) -> usize {
+        let pc_address = self.chip_state.borrow().pc as * const u16;
+        pc_address as usize
+    }
 }

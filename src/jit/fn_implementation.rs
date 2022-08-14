@@ -11,15 +11,15 @@ impl JIT<'_> {
     }
 
     pub fn ret(&mut self) -> InstructionResult {
-        let pc_adress = self.chip_state.borrow().pc as * const u16;
-        self.x86.pop(ptr(pc_adress as usize))?;
+        self.x86.pop(ptr(self.get_pc_state_address()))?;
 
         self.x86.sub(rsp, 1)?;
         Ok(true)
     }
 
     pub fn sys(&mut self, addr: Addr) -> InstructionResult {
-        todo!()
+        self.x86.mov(ptr(self.get_pc_state_address()), u32::from(addr.0))?;
+        Ok(true)
     }
 
     pub fn jp(&mut self, addr: Addr) -> InstructionResult {
