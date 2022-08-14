@@ -23,7 +23,8 @@ impl JIT<'_> {
     }
 
     pub fn jp(&mut self, addr: Addr) -> InstructionResult {
-        todo!()
+        self.x86.mov(ptr(self.get_pc_state_address()), u32::from(addr.0))?;
+        Ok(true)
     }
 
     pub fn call(&mut self, addr: Addr) -> InstructionResult {
