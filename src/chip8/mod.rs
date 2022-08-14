@@ -3,6 +3,17 @@ use crate::cache::Cache;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+pub const INSTRUCTION_SIZE: u16 = 16;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Chip8Field {
+    I,
+    PC,
+    SP,
+    Stack,
+    Reg(u8),
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Chip8State {
@@ -55,7 +66,7 @@ impl Chip8 {
 
     pub fn run(&mut self) {
         loop {
-            let block = self.cache.get_or_compile(&self.state);
+            let block = self.cache.get_or_compile(self.state.clone());
             block.execute();
         }
     }

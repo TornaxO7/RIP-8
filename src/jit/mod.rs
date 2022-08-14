@@ -10,14 +10,12 @@ use std::convert::From;
 use std::rc::Rc;
 
 use crate::cache::CompileBlock;
-use crate::chip8::Chip8State;
+use crate::chip8::{Chip8State, Chip8Field, INSTRUCTION_SIZE, Chip8};
 use crate::ChipAddr;
 
 use iced_x86::code_asm::CodeAssembler;
 use iced_x86::IcedError;
 use memmap2::MmapMut;
-
-const INSTRUCTION_SIZE: u16 = 16;
 
 pub type InstructionResult = Result<bool, IcedError>;
 
@@ -33,7 +31,7 @@ pub struct Byte(pub u8);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Addr(pub u16);
 
-pub fn compile(state: &Rc<RefCell<Chip8State>>) -> CompileBlock {
+pub fn compile(state: Rc<RefCell<Chip8State>>) -> CompileBlock {
     let mut jit = JIT::new(state);
 
     match jit.compile() {
@@ -43,24 +41,24 @@ pub fn compile(state: &Rc<RefCell<Chip8State>>) -> CompileBlock {
 }
 
 pub trait Frame {
-    fn prolog(&self, jit: &mut JIT<'_>) -> Result<(), IcedError>;
+    fn prolog(&self, jit: &mut JIT) -> Result<(), IcedError>;
 
-    fn epilog(&self, jit: &mut JIT<'_>) -> Result<(), IcedError>;
+    fn epilog(&self, jit: &mut JIT) -> Result<(), IcedError>;
 }
 
-pub struct JIT<'a> {
+pub struct JIT {
     start_pc: u16,
-    pub chip_state: &'a Rc<RefCell<Chip8State>>,
+    pub chip_state: Rc<RefCell<Chip8State>>,
     pub x86: CodeAssembler,
 }
 
-impl<'a> JIT<'a> {
+impl JIT {
     pub const QUAD_WORD: i32 = 64;
 
     const BITNESS: u32 = 16;
     const STEPS: [&'static dyn Frame; 2] = [&StackFrame as &dyn Frame, &ChipState as &dyn Frame];
 
-    fn new(chip_state: &'a Rc<RefCell<Chip8State>>) -> Self {
+    fn new(chip_state: Rc<RefCell<Chip8State>>) -> Self {
         let start_pc = chip_state.borrow().pc;
         Self {
             start_pc,
@@ -179,8 +177,14 @@ impl<'a> JIT<'a> {
         }
     }
 
-    fn get_pc_state_address(&self) -> usize {
-        let pc_address = self.chip_state.borrow().pc as * const u16;
-        pc_address as usize
+    fn get_state_field(&self, field: Chip8Field) -> usize {
+        match field {
+            Chip8Field::I => &self.chip_state.borrow().i as * const u16 as usize,
+            Chip8Field::PC => &self.chip_state.borrow().pc as * const u16 as usize,
+            Chip8Field::SP => &self.chip_state.borrow().sp as * const u8 as usize,
+            Chip8Field::Stack => &self.chip_state.borrow().stack as * const u16 as usize,
+            Chip8Field::Reg(index) =>
+                self.chip_state.borrow().regs.get(usize::from(index)).unwrap() as * const u8 as usize,
+        }
     }
 }

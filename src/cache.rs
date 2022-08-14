@@ -20,9 +20,9 @@ impl Cache {
         }
     }
 
-    pub fn get_or_compile(&mut self, state: &Rc<RefCell<Chip8State>>) -> &CompileBlock {
+    pub fn get_or_compile(&mut self, state: Rc<RefCell<Chip8State>>) -> &CompileBlock {
         let pc = state.borrow().pc;
-        self.blocks.entry(pc).or_insert(jit::compile(&state))
+        self.blocks.entry(pc).or_insert(jit::compile(state))
     }
 }
 
