@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::fs::OpenOptions;
 
 use crate::chip8::Chip8State;
 use crate::cache::CompileBlock;
@@ -20,6 +19,7 @@ pub struct JIT<'a> {
 
 impl<'a> JIT<'a> {
     const BITNESS: u32 = 16;
+    const STACK_OFFSET: u32 = 5 * 64;
 
     fn new(chip_state: &'a Rc<RefCell<Chip8State>>) -> Self {
         Self {
@@ -49,6 +49,9 @@ impl<'a> JIT<'a> {
 
     fn stack_frame_head(&mut self) -> Result<(), IcedError> {
         self.x86.push(rbp)?;
+        self.x86.mov(rsp, rbp)?;
+        self.x86.sub(10_i32, rsp)?;
+
         self.x86.push(rbx)?;
         self.x86.push(r12)?;
         self.x86.push(r13)?;
@@ -64,6 +67,8 @@ impl<'a> JIT<'a> {
         self.x86.pop(r13)?;
         self.x86.pop(r12)?;
         self.x86.pop(rbx)?;
+
+        self.x86.mov(rbp, rsp)?;
         self.x86.pop(rbp)?;
 
         Ok(())

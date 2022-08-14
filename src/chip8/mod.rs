@@ -1,5 +1,4 @@
 mod instruction;
-use crate::ChipAddr;
 use crate::cache::Cache;
 
 use std::rc::Rc;
