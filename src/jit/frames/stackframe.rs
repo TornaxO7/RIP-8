@@ -1,11 +1,12 @@
-use super::{Preparation, JIT};
 
 use iced_x86::code_asm::*;
+
+use crate::jit::{Frame, JIT};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StackFrame;
 
-impl Preparation for StackFrame {
+impl Frame for StackFrame {
     fn prolog(&self, jit: &mut JIT<'_>) -> Result<(), iced_x86::IcedError> {
         jit.x86.push(rbp)?;
         jit.x86.mov(rsp, rbp)?;

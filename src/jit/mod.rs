@@ -1,5 +1,6 @@
-mod stackframe;
-mod state;
+mod frames;
+
+use frames::{StackFrame, ChipState};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -11,9 +12,6 @@ use iced_x86::code_asm::CodeAssembler;
 use iced_x86::IcedError;
 use memmap2::MmapMut;
 
-use self::stackframe::StackFrame;
-use self::state::ChipState;
-
 pub fn compile(state: &Rc<RefCell<Chip8State>>) -> CompileBlock {
     let mut jit = JIT::new(state);
 
@@ -23,7 +21,7 @@ pub fn compile(state: &Rc<RefCell<Chip8State>>) -> CompileBlock {
     }
 }
 
-pub trait Preparation {
+pub trait Frame {
     fn prolog(&self, jit: &mut JIT<'_>) -> Result<(), IcedError>;
 
     fn epilog(&self, jit: &mut JIT<'_>) -> Result<(), IcedError>;
@@ -36,7 +34,10 @@ pub struct JIT<'a> {
 
 impl<'a> JIT<'a> {
     const BITNESS: u32 = 16;
-    const STEPS: [&'static dyn Preparation; 2] = [&StackFrame as &dyn Preparation, &ChipState as &dyn Preparation];
+    const STEPS: [&'static dyn Frame; 2] = [
+        &StackFrame as &dyn Frame,
+        &ChipState as &dyn Frame,
+    ];
 
     fn new(chip_state: &'a Rc<RefCell<Chip8State>>) -> Self {
         Self {
@@ -46,16 +47,9 @@ impl<'a> JIT<'a> {
     }
 
     fn compile(&mut self) -> Result<CompileBlock, IcedError> {
-        for step in Self::STEPS {
-            step.prolog(self);
-        }
+        self.prolog()?;
 
-        // nun wird chip-8 rekompiliert
-
-        for step in Self::STEPS {
-            step.epilog(self);
-        }
-
+        self.epilog()?;
         self.get_compiled_block()
     }
 
@@ -69,5 +63,21 @@ impl<'a> JIT<'a> {
             code,
             start_addr: pc,
         })
+    }
+
+    fn prolog(&mut self) -> Result<(), IcedError> {
+        for step in Self::STEPS {
+            step.prolog(self)?;
+        }
+
+        Ok(())
+    }
+
+    fn epilog(&mut self) -> Result<(), IcedError> {
+        for step in Self::STEPS {
+            step.epilog(self)?;
+        }
+
+        Ok(())
     }
 }

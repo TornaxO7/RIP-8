@@ -1,12 +1,12 @@
-use crate::chip8::Chip8State;
+use crate::{chip8::Chip8State, jit::{Frame, JIT}};
 
-use super::{Preparation, JIT};
+
 use iced_x86::code_asm::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChipState;
 
-impl Preparation for ChipState {
+impl Frame for ChipState {
     fn prolog(&self, jit: &mut JIT<'_>) -> Result<(), iced_x86::IcedError> {
         let chip_state = &*jit.chip_state.borrow() as * const Chip8State;
         jit.x86.mov(rax, chip_state as u64)?;
