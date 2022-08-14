@@ -3,13 +3,19 @@ use super::{
     Addr, Byte, InstructionResult, Vx, Vy, JIT,
 };
 
+use iced_x86::code_asm::*;
+
 impl JIT<'_> {
     pub fn cls(&mut self) -> InstructionResult {
         todo!()
     }
 
     pub fn ret(&mut self) -> InstructionResult {
-        todo!()
+        let pc_adress = self.chip_state.borrow().pc as * const u16;
+        self.x86.pop(ptr(pc_adress as usize))?;
+
+        self.x86.sub(rsp, 1)?;
+        Ok(true)
     }
 
     pub fn sys(&mut self, addr: Addr) -> InstructionResult {

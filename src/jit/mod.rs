@@ -1,17 +1,17 @@
-mod frames;
 mod fn_implementation;
-mod fn_traits;
 mod fn_trait_impl;
+mod fn_traits;
+mod frames;
 
-use frames::{StackFrame, ChipState};
+use frames::{ChipState, StackFrame};
 
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::convert::From;
+use std::rc::Rc;
 
-use crate::ChipAddr;
 use crate::cache::CompileBlock;
 use crate::chip8::Chip8State;
+use crate::ChipAddr;
 
 use iced_x86::code_asm::CodeAssembler;
 use iced_x86::IcedError;
@@ -58,10 +58,7 @@ impl<'a> JIT<'a> {
     pub const QUAD_WORD: i32 = 64;
 
     const BITNESS: u32 = 16;
-    const STEPS: [&'static dyn Frame; 2] = [
-        &StackFrame as &dyn Frame,
-        &ChipState as &dyn Frame,
-    ];
+    const STEPS: [&'static dyn Frame; 2] = [&StackFrame as &dyn Frame, &ChipState as &dyn Frame];
 
     fn new(chip_state: &'a Rc<RefCell<Chip8State>>) -> Self {
         let start_pc = chip_state.borrow().pc;
@@ -122,11 +119,12 @@ impl<'a> JIT<'a> {
     fn compile_next_instruction(&mut self, addr: ChipAddr) -> bool {
         let start_addr = usize::from(addr);
         let end_addr = start_addr + usize::from(INSTRUCTION_SIZE);
-        let slice: [u8; 2] = self.chip_state.borrow().mem[start_addr..end_addr].try_into().unwrap();
+        let slice: [u8; 2] = self.chip_state.borrow().mem[start_addr..end_addr]
+            .try_into()
+            .unwrap();
         let wordbyte = u16::from_le_bytes(slice);
 
-        self.compile_instruction(wordbyte)
-            .unwrap()
+        self.compile_instruction(wordbyte).unwrap()
     }
 
     fn compile_instruction(&mut self, instruction: u16) -> Result<bool, IcedError> {
@@ -180,8 +178,4 @@ impl<'a> JIT<'a> {
             _ => unreachable!("Reached unknown instruction: {:#x}", instruction),
         }
     }
-}
-
-fn merge_nibbles(n1: u8, n2: u8) -> u8 {
-    (n1 << 4) | n2
 }
