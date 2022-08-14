@@ -2,10 +2,11 @@ use super::{Preparation, JIT};
 
 use iced_x86::code_asm::*;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StackFrame;
 
 impl Preparation for StackFrame {
-    fn prolog(jit: &mut JIT) -> Result<(), iced_x86::IcedError> {
+    fn prolog(&self, jit: &mut JIT<'_>) -> Result<(), iced_x86::IcedError> {
         jit.x86.push(rbp)?;
         jit.x86.mov(rsp, rbp)?;
 
@@ -18,7 +19,7 @@ impl Preparation for StackFrame {
         Ok(())
     }
 
-    fn epilog(jit: &mut JIT) -> Result<(), iced_x86::IcedError> {
+    fn epilog(&self, jit: &mut JIT<'_>) -> Result<(), iced_x86::IcedError> {
         jit.x86.pop(r15)?;
         jit.x86.pop(r14)?;
         jit.x86.pop(r13)?;
