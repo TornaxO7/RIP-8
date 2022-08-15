@@ -7,11 +7,10 @@ use frames::{ChipState, StackFrame};
 
 use std::cell::RefCell;
 use std::convert::From;
-use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::cache::CompileBlock;
-use crate::chip8::{Chip8State, Chip8Field, INSTRUCTION_SIZE_BYTES, Chip8};
+use crate::chip8::{Chip8State, Chip8Field, INSTRUCTION_SIZE_BYTES};
 use crate::ChipAddr;
 
 use iced_x86::code_asm::CodeAssembler;

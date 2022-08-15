@@ -1,16 +1,16 @@
-use memmap2::MmapMut;
 use fnv::FnvHashMap;
+use memmap2::MmapMut;
 
-use crate::ChipAddr;
 use crate::chip8::Chip8State;
 use crate::jit;
+use crate::ChipAddr;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Cache {
-    blocks: FnvHashMap<ChipAddr, CompileBlock>
+    blocks: FnvHashMap<ChipAddr, CompileBlock>,
 }
 
 impl Cache {
@@ -34,5 +34,9 @@ pub struct CompileBlock {
 
 impl CompileBlock {
     pub fn execute(&self) {
+        let fnptr: unsafe extern "C" fn() = unsafe { std::mem::transmute(self.code.as_ptr()) };
+        unsafe {
+            fnptr();
+        }
     }
 }
