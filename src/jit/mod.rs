@@ -2,8 +2,9 @@ mod fn_implementation;
 mod fn_trait_impl;
 mod fn_traits;
 mod frames;
+mod fn_extern;
 
-use frames::{ChipState, StackFrame};
+use frames::StackFrame;
 
 use std::cell::RefCell;
 use std::convert::From;
@@ -53,10 +54,10 @@ pub struct JIT {
 }
 
 impl JIT {
-    pub const QUAD_WORD: i32 = 64;
+    pub const QUAD_WORD: i32 = 8;
 
-    const BITNESS: u32 = 16;
-    const STEPS: [&'static dyn Frame; 2] = [&StackFrame as &dyn Frame, &ChipState as &dyn Frame];
+    const BITNESS: u32 = 64;
+    const STEPS: [&'static dyn Frame; 1] = [&StackFrame as &dyn Frame];
 
     fn new(chip_state: Rc<RefCell<Chip8State>>) -> Self {
         let start_pc = chip_state.borrow().pc;
@@ -81,6 +82,7 @@ impl JIT {
         let bytes = self.x86.assemble(u64::from(pc))?;
         let mut code = MmapMut::map_anon(bytes.len()).unwrap();
         code.copy_from_slice(&bytes);
+        let code = code.make_exec().unwrap();
 
         Ok(CompileBlock {
             code,
@@ -97,7 +99,7 @@ impl JIT {
     }
 
     fn epilog(&mut self) -> Result<(), IcedError> {
-        for step in Self::STEPS {
+        for step in Self::STEPS.into_iter().rev() {
             step.epilog(self)?;
         }
 
@@ -177,8 +179,10 @@ impl JIT {
         }
     }
 
-    fn get_field_addr(&self, field: Chip8Field) -> usize {
-        match field {
+    fn get_field_offset(&self, field: Chip8Field) -> usize {
+        let state_addr = &self.chip_state.borrow().mem as * const u8 as usize;
+
+        let field_addr = match field {
             Chip8Field::I => &self.chip_state.borrow().i as * const u16 as usize,
             Chip8Field::PC => &self.chip_state.borrow().pc as * const u16 as usize,
             Chip8Field::SP => &self.chip_state.borrow().sp as * const u8 as usize,
@@ -187,6 +191,8 @@ impl JIT {
                 self.chip_state.borrow().regs.get(usize::from(index)).unwrap() as * const u8 as usize,
             Chip8Field::Delay => &self.chip_state.borrow().delay as * const u8 as usize,
             Chip8Field::Sound => &self.chip_state.borrow().sound as * const u8 as usize,
-        }
+        };
+
+        field_addr - state_addr
     }
 }

@@ -1,0 +1,20 @@
+2022-08-15T18:25:09.869209582+02:00 INFO wiki_tui::logging - successfully initialized the logging system
+2022-08-15T18:25:09.869296061+02:00 INFO wiki_tui - searching for the article: chip-8
+2022-08-15T18:25:09.871778584+02:00 INFO wiki_tui::ui::search - on_search was called
+2022-08-15T18:25:09.871874251+02:00 INFO wiki_tui::ui::search - searching for 'chip-8'
+2022-08-15T18:25:09.871986628+02:00 INFO wiki_tui::wiki::search::builder - search was called
+2022-08-15T18:25:10.318642159+02:00 INFO wiki_tui::wiki::search::builder - search finished successfully
+2022-08-15T18:25:10.318905799+02:00 INFO wiki_tui::ui::search - displaying '10' out of '33582' search results
+2022-08-15T18:25:10.319168297+02:00 INFO wiki_tui::ui::search - on_search finished successfully
+2022-08-15T18:25:10.319367068+02:00 INFO wiki_tui::ui::search - on_result_select was called with the item 'CHIP-8', page id: '1119698'
+2022-08-15T18:25:10.319583369+02:00 INFO wiki_tui::ui::search - on_result_select finished successfully
+2022-08-15T18:25:11.165171413+02:00 INFO wiki_tui::ui::article - on_article_submit was called
+2022-08-15T18:25:11.165657911+02:00 INFO wiki_tui::ui::article - fetching the article 'CHIP-8' with the id '1119698'
+2022-08-15T18:25:11.166042874+02:00 INFO wiki_tui::wiki::article::builder - beginning the build process
+2022-08-15T18:25:11.166370447+02:00 INFO wiki_tui::wiki::article::builder - making the request to 'https://en.wikipedia.org/?curid=1119698'
+2022-08-15T18:25:11.750988106+02:00 INFO wiki_tui::wiki::article::builder - parsing the article
+2022-08-15T18:25:11.856514699+02:00 INFO wiki_tui::ui::article - displaying the article 'CHIP-8'
+2022-08-15T18:25:11.856723941+02:00 INFO wiki_tui::ui::article - displaying the table of contents
+2022-08-15T18:25:11.856820716+02:00 INFO wiki_tui::ui::article - on_article_submit finished successfully
+2022-08-15T18:25:16.502379213+02:00 INFO wiki_tui::ui::toc - jumping to '4.6 Graphics and sound'
+2022-08-15T18:25:16.502572140+02:00 INFO wiki_tui::ui::article::view - selecting the header number '9'

@@ -1,5 +1,5 @@
 use fnv::FnvHashMap;
-use memmap2::MmapMut;
+use memmap2::Mmap;
 
 use crate::chip8::Chip8State;
 use crate::jit;
@@ -28,15 +28,18 @@ impl Cache {
 
 #[derive(Debug)]
 pub struct CompileBlock {
-    pub code: MmapMut,
+    pub code: Mmap,
     pub start_addr: ChipAddr,
 }
 
 impl CompileBlock {
-    pub fn execute(&self) {
-        let fnptr: unsafe extern "C" fn() = unsafe { std::mem::transmute(self.code.as_ptr()) };
+    pub fn execute(&self, state: Rc<RefCell<Chip8State>>) {
+        let state = (&mut *state.borrow_mut()) as *mut Chip8State;
+
+        let fnptr: unsafe extern "C" fn(state: *mut Chip8State) =
+            unsafe { std::mem::transmute(self.code.as_ptr()) };
         unsafe {
-            fnptr();
+            fnptr(state);
         }
     }
 }

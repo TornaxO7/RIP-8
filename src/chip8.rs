@@ -1,7 +1,15 @@
+use crossterm::event::{DisableFocusChange, DisableMouseCapture};
+use crossterm::execute;
+use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
+use tui::backend::CrosstermBackend;
+use tui::Terminal;
+
 use crate::cache::Cache;
 
+use std::borrow::BorrowMut;
+use std::cell::{RefCell, RefMut};
+use std::io::Stdout;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 pub const INSTRUCTION_SIZE_BYTES: u16 = 2;
 
@@ -17,7 +25,6 @@ pub enum Chip8Field {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Chip8State {
     pub mem: [u8; Chip8::MEM_SIZE],
     pub regs: [u8; Chip8::AMOUNT_REGISTERS],
@@ -27,9 +34,10 @@ pub struct Chip8State {
     pub pc: u16,
     pub sp: u8,
     pub stack: [u16; Chip8::MAX_AMOUNT_STACK],
+    pub term: Terminal<CrosstermBackend<Stdout>>,
+    should_run: bool,
 }
 
-#[derive(Debug)]
 pub struct Chip8 {
     state: Rc<RefCell<Chip8State>>,
     cache: Cache,
@@ -61,15 +69,17 @@ impl Chip8 {
                 pc: Self::START_ADDRESS,
                 sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
+                term: Terminal::new(CrosstermBackend::new(std::io::stdout())).unwrap(),
+                should_run: true,
             })),
             cache: Cache::new(),
         }
     }
 
     pub fn run(&mut self) {
-        loop {
+        while self.state.borrow().should_run {
             let block = self.cache.get_or_compile(self.state.clone());
-            block.execute();
+            block.execute(self.state.clone());
         }
     }
 }
