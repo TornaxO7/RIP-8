@@ -7,6 +7,7 @@ use frames::{ChipState, StackFrame};
 
 use std::cell::RefCell;
 use std::convert::From;
+use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::cache::CompileBlock;
@@ -177,7 +178,7 @@ impl JIT {
         }
     }
 
-    fn get_state_field(&self, field: Chip8Field) -> usize {
+    fn get_field_addr(&self, field: Chip8Field) -> usize {
         match field {
             Chip8Field::I => &self.chip_state.borrow().i as * const u16 as usize,
             Chip8Field::PC => &self.chip_state.borrow().pc as * const u16 as usize,
@@ -185,6 +186,8 @@ impl JIT {
             Chip8Field::Stack => &self.chip_state.borrow().stack as * const u16 as usize,
             Chip8Field::Reg(index) =>
                 self.chip_state.borrow().regs.get(usize::from(index)).unwrap() as * const u8 as usize,
+            Chip8Field::Delay => &self.chip_state.borrow().delay as * const u8 as usize,
+            Chip8Field::Sound => &self.chip_state.borrow().sound as * const u8 as usize,
         }
     }
 }

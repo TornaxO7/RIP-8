@@ -3,7 +3,7 @@ use crate::cache::Cache;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-pub const INSTRUCTION_SIZE: u16 = 16;
+pub const INSTRUCTION_SIZE_BYTES: u16 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Chip8Field {
@@ -12,6 +12,8 @@ pub enum Chip8Field {
     SP,
     Stack,
     Reg(u8),
+    Delay,
+    Sound,
 }
 
 #[repr(C)]
