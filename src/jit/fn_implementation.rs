@@ -291,24 +291,24 @@ impl JIT {
 
         self.x86.mov(rdi, 0_u64)?;
         self.x86.mov(r8, u64::try_from(vx_addr).unwrap())?;
-        self.x86.mov(r9, ptr(i_addr))?;
         self.x86.mov(r10, r8 - v0_addr)?;
 
         // -- while loop --
         // put reg-value to i
+        self.x86.anonymous_label()?;
         self.x86.mov(rax, ptr(v0_addr + rdi))?;
-        self.x86.mov(ptr(r9), rax)?;
+        let jump_addr = self.x86.bwd()?;
 
-        // point to next reg-value and ...
-        self.x86.add(rdi, i32::from(INSTRUCTION_SIZE_BYTES))?;
-        // ... to the next destination-address
-        self.x86.add(r9, i32::from(INSTRUCTION_SIZE_BYTES))?;
+        self.x86.mov(ptr(i_addr + rdi), rax)?;
+
+        // increment offset
+        self.x86.inc(rdi)?;
 
         // while(rdi <= r10)
         self.x86.cmp(rdi, r10)?;
-        todo!();
+        self.x86.jle(jump_addr)?;
 
-        // Ok(false)
+        Ok(true)
     }
 
     pub fn ld_x_i(&mut self, vx: Vx) -> InstructionResult {
@@ -316,6 +316,25 @@ impl JIT {
         let v0_addr = self.get_field_addr(Chip8Field::Reg(0));
         let i_addr = self.get_field_addr(Chip8Field::I);
 
-        todo!();
+        self.x86.mov(rdi, 0_u64)?;
+        self.x86.mov(r8, u64::try_from(vx_addr).unwrap())?;
+        self.x86.mov(r10, r8 - v0_addr)?;
+
+        // -- while loop --
+        // movw al, [i]
+        self.x86.anonymous_label()?;
+        self.x86.mov(al, ptr(i_addr + rdi))?;
+        let jump_addr = self.x86.bwd()?;
+
+        self.x86.mov(ptr(v0_addr + rdi), al)?;
+
+        // increment offset
+        self.x86.inc(rdi)?;
+
+        // while(rdi <= r10)
+        self.x86.cmp(rdi, r10)?;
+        self.x86.jle(jump_addr)?;
+
+        Ok(true)
     }
 }

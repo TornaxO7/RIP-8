@@ -11,7 +11,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::cache::CompileBlock;
-use crate::chip8::{Chip8State, Chip8Field, INSTRUCTION_SIZE, Chip8};
+use crate::chip8::{Chip8State, Chip8Field, INSTRUCTION_SIZE_BYTES, Chip8};
 use crate::ChipAddr;
 
 use iced_x86::code_asm::CodeAssembler;
@@ -109,7 +109,7 @@ impl JIT {
         let mut pc: ChipAddr = self.chip_state.borrow().pc;
 
         while self.compile_next_instruction(pc) {
-            pc += INSTRUCTION_SIZE;
+            pc += INSTRUCTION_SIZE_BYTES;
         }
 
         Ok(())
@@ -117,7 +117,7 @@ impl JIT {
 
     fn compile_next_instruction(&mut self, addr: ChipAddr) -> bool {
         let start_addr = usize::from(addr);
-        let end_addr = start_addr + usize::from(INSTRUCTION_SIZE);
+        let end_addr = start_addr + usize::from(INSTRUCTION_SIZE_BYTES);
         let slice: [u8; 2] = self.chip_state.borrow().mem[start_addr..end_addr]
             .try_into()
             .unwrap();
