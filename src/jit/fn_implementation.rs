@@ -134,15 +134,13 @@ impl JIT {
         let vy_addr = self.get_field_addr(Chip8Field::Reg(vy.0));
         let vf_addr = self.get_field_addr(Chip8Field::Reg(0xf));
 
-        // set Vf
+        // sub
         self.x86.mov(rax, ptr(vx_addr))?;
         self.x86.mov(rdi, ptr(vy_addr))?;
-        self.x86.cmp(rax, rdi)?;
-        self.x86.setg(ptr(vf_addr))?;
-
-        // sub
         self.x86.sub(rax, rdi)?;
-        self.x86.mov(ptr(vx_addr), rax)?;
+
+        // set Vf
+        self.x86.setnc(ptr(vf_addr))?;
 
         Ok(true)
     }
@@ -167,15 +165,15 @@ impl JIT {
         let vy_addr = self.get_field_addr(Chip8Field::Reg(vy.0));
         let vf_addr = self.get_field_addr(Chip8Field::Reg(0xf));
 
-        // set vf
+        // sub Vy, Vx
         self.x86.mov(rax, ptr(vx_addr))?;
         self.x86.mov(rdi, ptr(vy_addr))?;
-        self.x86.cmp(rdi, rax)?;
-        self.x86.setg(ptr(vf_addr))?;
+        self.x86.sub(rdi, rax)?;
 
-        // sub
-        self.x86.sub(rax, rdi)?;
-        self.x86.mov(ptr(vx_addr), rax)?;
+        // set vf
+        self.x86.setnc(ptr(vf_addr))?;
+
+        self.x86.mov(ptr(vx_addr), rdi)?;
 
         Ok(true)
     }
