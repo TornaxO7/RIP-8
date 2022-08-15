@@ -1,15 +1,17 @@
-use crate::chip8::{Chip8Field, INSTRUCTION_SIZE_BYTES};
+use crate::chip8::{Chip8Field, INSTRUCTION_SIZE_BYTES, Chip8State};
 
 use super::{
     fn_traits::{ArgAdd, ArgLd, ArgSe, ArgSne},
-    Addr, Byte, InstructionResult, Vx, Vy, JIT,
+    Addr, Byte, InstructionResult, Vx, Vy, JIT, fn_extern,
 };
 
 use iced_x86::code_asm::*;
 
 impl JIT {
     pub fn cls(&mut self) -> InstructionResult {
-        todo!()
+        let cls_addr = fn_extern::cls as unsafe extern "C" fn(state: * mut Chip8State) -> ();
+        self.x86.call(cls_addr as u64)?;
+        Ok(true)
     }
 
     pub fn ret(&mut self) -> InstructionResult {
@@ -194,7 +196,9 @@ impl JIT {
     }
 
     pub fn ld_i(&mut self, _addr: Addr) -> InstructionResult {
-        todo!()
+        let ld_i_addr = fn_extern::ld_i as unsafe extern "C" fn(state: * mut Chip8State, addr: Addr) -> ();
+        self.x86.call(ld_i_addr as u64)?;
+        Ok(true)
     }
 
     pub fn ld_v0(&mut self, addr: Addr) -> InstructionResult {
@@ -217,14 +221,22 @@ impl JIT {
     }
 
     pub fn drw(&mut self, vx: Vx, vy: Vy, nibble: u8) -> InstructionResult {
-        todo!()
+        let drw_addr = fn_extern::drw as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx, vy: Vy, nibble: u8) -> ();
+        self.x86.call(drw_addr as u64)?;
+        Ok(true)
     }
 
     pub fn skp(&mut self, vx: Vx) -> InstructionResult {
+        let skp_addr = fn_extern::skp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> bool;
+        self.x86.call(skp_addr as u64)?;
+
         todo!()
     }
 
     pub fn sknp(&mut self, vx: Vx) -> InstructionResult {
+        let sknp_addr = fn_extern::sknp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx, vy: Vy, nibble: u8) -> bool;
+        self.x86.call(sknp_addr as u64)?;
+
         todo!()
     }
 
@@ -239,7 +251,10 @@ impl JIT {
     }
 
     pub fn ld_k(&mut self, vx: Vx) -> InstructionResult {
-        todo!()
+        let ld_k_addr = fn_extern::ld_k as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.x86.call(ld_k_addr as u64)?;
+
+        Ok(true)
     }
 
     pub fn ld_dt_x(&mut self, vx: Vx) -> InstructionResult {
@@ -275,11 +290,17 @@ impl JIT {
     }
 
     pub fn ld_f(&mut self, vx: Vx) -> InstructionResult {
-        todo!()
+        let ld_f_addr = fn_extern::ld_f as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.x86.call(ld_f_addr as u64)?;
+
+        Ok(true)
     }
 
     pub fn ld_b(&mut self, vx: Vx) -> InstructionResult {
-        todo!()
+        let ld_b_addr = fn_extern::ld_b as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.x86.call(ld_b_addr as u64)?;
+
+        Ok(true)
     }
 
     pub fn ld_i_x(&mut self, vx: Vx) -> InstructionResult {
