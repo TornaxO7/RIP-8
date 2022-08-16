@@ -16,7 +16,6 @@ use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES};
 use crate::ChipAddr;
 
 use iced_x86::code_asm::CodeAssembler;
-use iced_x86::IcedError;
 use memmap2::MmapMut;
 
 #[repr(C)]
@@ -38,16 +37,13 @@ pub struct Addr(pub u16);
 pub fn compile(state: Rc<RefCell<Chip8State>>) -> CompileBlock {
     let mut jit = JIT::new(state);
 
-    match jit.compile() {
-        Ok(compiled_block) => compiled_block,
-        Err(err) => panic!("{}", err),
-    }
+    jit.compile()
 }
 
 pub trait Frame {
-    fn prolog(&self, jit: &mut JIT) -> Result<(), IcedError>;
+    fn prolog(&self, jit: &mut JIT);
 
-    fn epilog(&self, jit: &mut JIT) -> Result<(), IcedError>;
+    fn epilog(&self, jit: &mut JIT);
 }
 
 #[repr(C)]
@@ -60,7 +56,7 @@ pub struct JIT {
 impl JIT {
     pub const QUAD_WORD: i32 = 8;
 
-    const BITNESS: u32 = 64;
+    const BITNESS: u32 = 16;
     const STEPS: [&'static dyn Frame; 1] = [&StackFrame as &dyn Frame];
 
     fn new(chip_state: Rc<RefCell<Chip8State>>) -> Self {
@@ -72,62 +68,52 @@ impl JIT {
         }
     }
 
-    fn compile(&mut self) -> Result<CompileBlock, IcedError> {
-        self.prolog()?;
+    fn compile(&mut self) -> CompileBlock {
+        self.recompile_chip8();
 
-        self.recompile_chip8()?;
+        self.epilog();
 
-        self.epilog()?;
+        debug!("Finished compiled block!");
         self.get_compiled_block()
     }
 
-    fn get_compiled_block(&mut self) -> Result<CompileBlock, IcedError> {
+    fn get_compiled_block(&mut self) -> CompileBlock {
         let pc = self.chip_state.borrow().pc;
-        let bytes = self.x86.assemble(u64::from(pc))?;
+        let bytes = self.x86.assemble(u64::from(pc)).unwrap();
         let mut code = MmapMut::map_anon(bytes.len()).unwrap();
         code.copy_from_slice(&bytes);
         let code = code.make_exec().unwrap();
 
-        Ok(CompileBlock {
+        CompileBlock {
             code,
             start_addr: self.start_pc,
-        })
-    }
-
-    fn prolog(&mut self) -> Result<(), IcedError> {
-        for step in Self::STEPS {
-            step.prolog(self)?;
         }
-
-        Ok(())
     }
 
-    fn epilog(&mut self) -> Result<(), IcedError> {
+    fn epilog(&mut self) {
         for step in Self::STEPS.into_iter().rev() {
-            step.epilog(self)?;
+            step.epilog(self);
         }
-
-        Ok(())
     }
 
-    fn recompile_chip8(&mut self) -> Result<(), IcedError> {
+    fn recompile_chip8(&mut self) {
         let mut pc: ChipAddr = self.chip_state.borrow().pc;
 
         while self.compile_next_instruction(pc) {
             debug!("Recompiling instruction next at {:#x}", pc);
-            pc += INSTRUCTION_SIZE_BYTES;
+            pc += u16::from(INSTRUCTION_SIZE_BYTES);
         }
-
-        Ok(())
     }
 
     fn compile_next_instruction(&mut self, addr: ChipAddr) -> bool {
         let start_addr = usize::from(addr);
         let end_addr = start_addr + usize::from(INSTRUCTION_SIZE_BYTES);
-        let slice: [u8; 2] = self.chip_state.borrow().mem[start_addr..end_addr]
+        let mem = self.chip_state.borrow().mem;
+
+        let slice: [u8; 2] = mem[start_addr..end_addr]
             .try_into()
             .unwrap();
-        let wordbyte = u16::from_le_bytes(slice);
+        let wordbyte = u16::from_be_bytes(slice);
 
         self.compile_instruction(wordbyte)
     }
@@ -186,7 +172,7 @@ impl JIT {
     }
 
     fn get_field_offset(&self, field: Chip8Field) -> usize {
-        let state_addr = &self.chip_state.borrow().mem as *const u8 as usize;
+        let state_addr = &self.chip_state.borrow().deine_mudda as *const u32 as usize;
 
         let field_addr = match field {
             Chip8Field::I => &self.chip_state.borrow().i as *const u16 as usize,
@@ -204,5 +190,22 @@ impl JIT {
         };
 
         field_addr - state_addr
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{rc::Rc, cell::RefCell};
+
+    use crate::chip8::{Chip8State, Chip8, Chip8Field};
+
+    use super::JIT;
+
+    #[test]
+    fn test_offset_mem() {
+        let state = Rc::new(RefCell::new(Chip8State::default()));
+        let jit = JIT::new(state);
+
+        assert_eq!(jit.get_field_offset(Chip8Field::PC), Chip8::MEM_SIZE + Chip8::AMOUNT_REGISTERS + 2 + 1 + 1);
     }
 }

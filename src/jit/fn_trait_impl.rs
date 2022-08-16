@@ -12,19 +12,19 @@ impl ArgSe<Byte> for JIT {
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
-        self.x86.mov(r9, ptr(pc_addr)).unwrap();
+        self.x86.mov(ax, ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
-        self.x86.mov(r8, ptr(pc_addr)).unwrap();
-        self.x86.add(r8, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
+        self.x86.mov(bx, ptr(pc_addr)).unwrap();
+        self.x86.add(bx, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
 
         // cmp vx, kk
-        self.x86.mov(r10, ptr(vx_addr)).unwrap();
-        self.x86.cmp(r10, i32::from(arg2.0)).unwrap();
+        self.x86.mov(cl, ptr(vx_addr)).unwrap();
+        self.x86.cmp(cl, i32::from(arg2.0)).unwrap();
 
-        // set pc if vx == kk (update r9 if needed)
-        self.x86.cmove(r9, r8).unwrap();
+        // set pc if vx == kk (update ax if needed)
+        self.x86.cmove(ax, bx).unwrap();
 
-        self.x86.mov(ptr(pc_addr), r9).unwrap();
+        self.x86.mov(ptr(pc_addr), ax).unwrap();
 
         false
     }
@@ -37,21 +37,21 @@ impl ArgSe<Vy> for JIT {
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
         // store vx and vy in registers
-        self.x86.mov(r10, ptr(vx_addr)).unwrap();
-        self.x86.mov(r11, ptr(vy_addr)).unwrap();
+        self.x86.mov(al, ptr(vx_addr)).unwrap();
+        self.x86.mov(bl, ptr(vy_addr)).unwrap();
 
-        self.x86.mov(r9, ptr(pc_addr)).unwrap();
+        self.x86.mov(cx, ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
-        self.x86.mov(r8, ptr(pc_addr)).unwrap();
-        self.x86.add(r8, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
+        self.x86.mov(dx, ptr(pc_addr)).unwrap();
+        self.x86.add(dx, u32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
 
         // cmp vx, vy
-        self.x86.cmp(r10, r11).unwrap();
+        self.x86.cmp(al, bl).unwrap();
 
-        // set pc if vx == kk (update r9 if needed)
-        self.x86.cmove(r9, r8).unwrap();
+        // set pc if vx == kk (update cx if needed)
+        self.x86.cmove(cx, dx).unwrap();
 
-        self.x86.mov(ptr(pc_addr), r9).unwrap();
+        self.x86.mov(ptr(pc_addr), cx).unwrap();
 
         false
     }
@@ -62,19 +62,19 @@ impl ArgSne<Byte> for JIT {
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
-        self.x86.mov(r9, ptr(pc_addr)).unwrap();
+        self.x86.mov(ax, ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
-        self.x86.mov(r8, ptr(pc_addr)).unwrap();
-        self.x86.add(r8, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
+        self.x86.mov(bx, ptr(pc_addr)).unwrap();
+        self.x86.add(bx, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
 
         // cmp vx, kk
-        self.x86.mov(r10, ptr(vx_addr)).unwrap();
-        self.x86.cmp(r10, i32::from(arg2.0)).unwrap();
+        self.x86.mov(cx, ptr(vx_addr)).unwrap();
+        self.x86.cmp(cx, i32::from(arg2.0)).unwrap();
 
-        // set pc if vx != kk (update r9 if needed)
-        self.x86.cmovne(r9, r8).unwrap();
+        // set pc if vx != kk (update ax if needed)
+        self.x86.cmovne(ax, bx).unwrap();
 
-        self.x86.mov(ptr(pc_addr), r9).unwrap();
+        self.x86.mov(ptr(pc_addr), ax).unwrap();
 
         false
     }
@@ -88,21 +88,21 @@ impl ArgSne<Vy> for JIT {
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
         // store vx and vy in registers
-        self.x86.mov(r10, ptr(vx_addr)).unwrap();
-        self.x86.mov(r11, ptr(vy_addr)).unwrap();
+        self.x86.mov(al, ptr(vx_addr)).unwrap();
+        self.x86.mov(bl, ptr(vy_addr)).unwrap();
 
-        self.x86.mov(r9, ptr(pc_addr)).unwrap();
+        self.x86.mov(cx, ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
-        self.x86.mov(r8, ptr(pc_addr)).unwrap();
-        self.x86.add(r8, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
+        self.x86.mov(dx, ptr(pc_addr)).unwrap();
+        self.x86.add(dx, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
 
         // cmp vx, vy
-        self.x86.cmp(r10, r11).unwrap();
+        self.x86.cmp(al, bl).unwrap();
 
-        // set pc if vx != kk (update r9 if needed)
-        self.x86.cmovne(r9, r8).unwrap();
+        // set pc if vx != kk (update cx if needed)
+        self.x86.cmovne(cx, dx).unwrap();
 
-        self.x86.mov(ptr(pc_addr), r9).unwrap();
+        self.x86.mov(ptr(pc_addr), cx).unwrap();
 
         false
     }
@@ -112,8 +112,8 @@ impl ArgLd<Byte> for JIT {
     fn ld(&mut self, vx: Vx, arg2: Byte) -> bool {
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
-        self.x86.mov(r8, u64::from(arg2.0)).unwrap();
-        self.x86.mov(ptr(vx_addr), r8).unwrap();
+        self.x86.mov(al, u32::from(arg2.0)).unwrap();
+        self.x86.mov(ptr(vx_addr), al).unwrap();
 
         true
     }
@@ -124,8 +124,8 @@ impl ArgLd<Vy> for JIT {
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
 
-        self.x86.mov(r8, ptr(vy_addr)).unwrap();
-        self.x86.mov(ptr(vx_addr), r8).unwrap();
+        self.x86.mov(al, ptr(vy_addr)).unwrap();
+        self.x86.mov(ptr(vx_addr), al).unwrap();
 
         true
     }
@@ -135,9 +135,9 @@ impl ArgAdd<Byte> for JIT {
     fn add(&mut self, vx: Vx, arg2: Byte) -> bool {
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
-        self.x86.mov(r8, ptr(vx_addr)).unwrap();
-        self.x86.add(r8, i32::from(arg2.0)).unwrap();
-        self.x86.mov(ptr(vx_addr), r8).unwrap();
+        self.x86.mov(al, ptr(vx_addr)).unwrap();
+        self.x86.add(al, i32::from(arg2.0)).unwrap();
+        self.x86.mov(ptr(vx_addr), al).unwrap();
 
         true
     }
@@ -150,12 +150,13 @@ impl ArgAdd<Vy> for JIT {
         let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
 
         // add Vx, Vy
-        self.x86.mov(r8, ptr(vx_addr)).unwrap();
-        self.x86.mov(r9, ptr(vy_addr)).unwrap();
-        self.x86.add(r8, r9).unwrap();
+        self.x86.mov(al, ptr(vx_addr)).unwrap();
+        self.x86.mov(bl, ptr(vy_addr)).unwrap();
+        self.x86.add(al, bl).unwrap();
 
         // set Vf
-        self.x86.setc(ptr(vf_addr)).unwrap();
+        self.x86.mov(cl, vf_addr).unwrap();
+        self.x86.setc(ptr(cl)).unwrap();
 
         true
     }

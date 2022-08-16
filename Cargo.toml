@@ -10,9 +10,10 @@ authors = ["TornaxO7 <tornax07@gmail.com>"]
 fnv = "1.0.7"
 memmap2 = "0.5.6"
 clap = { version =  "3.2.16", features = ["cargo"] }
-simple = "0.3.0"
+minifb = "0.23.0"
 log = "0.4.0"
 env_logger = "0.9.0"
+memoffset = "0.6.5"
 
 [dependencies.iced-x86]
 version = "1.17.0"
