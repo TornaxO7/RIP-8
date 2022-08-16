@@ -8,9 +8,23 @@ use super::{
 use iced_x86::code_asm::*;
 
 impl JIT {
+    fn function_call_prolog(&mut self) -> Result<(), IcedError> {
+        self.x86.push(rdi)?;
+        Ok(())
+    }
+
+    fn function_call_epilog(&mut self) -> Result<(), IcedError> {
+        self.x86.pop(rdi)?;
+        Ok(())
+    }
+
     pub fn cls(&mut self) -> InstructionResult {
+        self.function_call_prolog()?;
+
         let cls_addr = fn_extern::cls as unsafe extern "C" fn(state: * mut Chip8State) -> ();
         self.x86.call(cls_addr as u64)?;
+
+        self.function_call_epilog()?;
         Ok(true)
     }
 
@@ -224,23 +238,39 @@ impl JIT {
     }
 
     pub fn drw(&mut self, vx: Vx, vy: Vy, nibble: u8) -> InstructionResult {
-        let drw_addr = fn_extern::drw as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx, vy: Vy, nibble: u8) -> ();
+        self.function_call_prolog()?;
+
+        self.x86.push(u32::from(vx.0))?;
+        self.x86.push(u32::from(vy.0))?;
+        self.x86.push(u32::from(nibble))?;
+        let drw_addr = fn_extern::drw as unsafe extern "C" fn(state: * mut Chip8State, vx: u32, vy: u32, nibble: u8) -> ();
         self.x86.call(drw_addr as u64)?;
+
+        self.function_call_epilog()?;
         Ok(true)
     }
 
     pub fn skp(&mut self, vx: Vx) -> InstructionResult {
-        let skp_addr = fn_extern::skp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.function_call_prolog()?;
+
+        self.x86.push(u32::from(vx.0))?;
+        let skp_addr = fn_extern::skp as unsafe extern "C" fn(state: * mut Chip8State, vx: u32) -> ();
         self.x86.call(skp_addr as u64)?;
 
-        todo!()
+        self.function_call_epilog()?;
+        Ok(false)
     }
 
     pub fn sknp(&mut self, vx: Vx) -> InstructionResult {
-        let sknp_addr = fn_extern::sknp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.function_call_prolog()?;
+
+        self.x86.push(u32::from(vx.0))?;
+        let sknp_addr = fn_extern::sknp as unsafe extern "C" fn(state: * mut Chip8State, vx: u32) -> ();
         self.x86.call(sknp_addr as u64)?;
 
-        todo!()
+        self.function_call_epilog()?;
+
+        Ok(false)
     }
 
     pub fn ld_x_dt(&mut self, vx: Vx) -> InstructionResult {
@@ -254,9 +284,13 @@ impl JIT {
     }
 
     pub fn ld_k(&mut self, vx: Vx) -> InstructionResult {
-        let ld_k_addr = fn_extern::ld_k as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.function_call_prolog()?;
+
+        self.x86.push(u32::from(vx.0))?;
+        let ld_k_addr = fn_extern::ld_k as unsafe extern "C" fn(state: * mut Chip8State, vx: u32) -> ();
         self.x86.call(ld_k_addr as u64)?;
 
+        self.function_call_epilog()?;
         Ok(true)
     }
 
@@ -293,16 +327,24 @@ impl JIT {
     }
 
     pub fn ld_f(&mut self, vx: Vx) -> InstructionResult {
-        let ld_f_addr = fn_extern::ld_f as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.function_call_prolog()?;
+
+        self.x86.push(u32::from(vx.0))?;
+        let ld_f_addr = fn_extern::ld_f as unsafe extern "C" fn(state: * mut Chip8State, vx: u32) -> ();
         self.x86.call(ld_f_addr as u64)?;
 
+        self.function_call_epilog()?;
         Ok(true)
     }
 
     pub fn ld_b(&mut self, vx: Vx) -> InstructionResult {
-        let ld_b_addr = fn_extern::ld_b as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
+        self.function_call_prolog()?;
+
+        self.x86.push(u32::from(vx.0))?;
+        let ld_b_addr = fn_extern::ld_b as unsafe extern "C" fn(state: * mut Chip8State, vx: u32) -> ();
         self.x86.call(ld_b_addr as u64)?;
 
+        self.function_call_epilog()?;
         Ok(true)
     }
 
