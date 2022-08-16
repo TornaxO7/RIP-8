@@ -52,13 +52,12 @@ impl JIT {
         true
     }
 
-    pub fn sys(&mut self, _: Addr) -> bool {
+    pub fn sys(&mut self, addr: Addr) -> bool {
         debug!("-> SYS");
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
-        // our interpreter is a (modern) chad, so we ignore this one
         self.x86.mov(r8, ptr(pc_addr)).unwrap();
-        self.x86.add(r8, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
+        self.x86.add(r8, i32::from(addr.0)).unwrap();
         self.x86.mov(ptr(pc_addr), r8).unwrap();
 
         false

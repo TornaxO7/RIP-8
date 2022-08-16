@@ -50,6 +50,7 @@ pub trait Frame {
     fn epilog(&self, jit: &mut JIT) -> Result<(), IcedError>;
 }
 
+#[repr(C)]
 pub struct JIT {
     start_pc: u16,
     pub chip_state: Rc<RefCell<Chip8State>>,
