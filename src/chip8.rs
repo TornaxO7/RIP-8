@@ -121,14 +121,17 @@ impl Chip8 {
     }
 
     pub fn run(&mut self) {
-        while self.state.borrow().should_run {
-            let block = self.cache.get_or_compile(self.state.clone());
-            debug!("pc: {:#x}", self.state.borrow().pc);
-            block.execute(self.state.clone());
-            self.state.borrow_mut().pc += 1;
-
-            self.refresh_window();
+        let mut index = 0;
+        while index < 1000 && self.state.borrow().should_run {
+        // while self.state.borrow().should_run {
+        //     let block = self.cache.get_or_compile(self.state.clone());
+        //     debug!("pc: {:#x}", self.state.borrow().pc);
+        //     block.execute(self.state.clone());
+        //     self.state.borrow_mut().pc += INSTRUCTION_SIZE_BYTES;
+        //
+        //     self.refresh_window();
             self.refresh_keys();
+            index +=1;
         }
     }
 
@@ -164,7 +167,10 @@ impl Chip8 {
                 state.keys[i] = false;
             }
 
-            state.should_run = state.keys[4];
+            if state.keys[4] {
+                debug!("'Q' key hit!");
+                state.should_run = false;
+            }
         }
     }
 }
