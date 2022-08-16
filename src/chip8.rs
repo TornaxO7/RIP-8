@@ -1,5 +1,5 @@
 use log::debug;
-use simple::{Point, Window, Key};
+use simple::{Window, Key, Rect};
 
 use crate::cache::Cache;
 
@@ -16,6 +16,8 @@ pub const WINDOW_HEIGHTu16: u16 = 32;
 pub const WINDOW_WIDTHusize: usize = WINDOW_WIDTHu16 as usize;
 #[allow(non_upper_case_globals)]
 pub const WINDOW_HEIGHTusize: usize = WINDOW_HEIGHTu16 as usize;
+
+pub const FACTOR: u16 = 10;
 
 pub const SPRITES: [u8; 16 * 5] = [
     0xf0, 0x90, 0x90, 0x90, 0xf0, // 0
@@ -96,7 +98,7 @@ impl Chip8 {
             mem[usize::from(Self::START_ADDRESS) + index] = value;
         }
 
-        let mut window = Window::new("RIP-8", WINDOW_WIDTHu16, WINDOW_HEIGHTu16);
+        let mut window = Window::new("RIP-8", WINDOW_WIDTHu16 * FACTOR, WINDOW_HEIGHTu16 * FACTOR);
         window.set_color(u8::MAX, u8::MAX, u8::MAX, u8::MAX);
 
         Self {
@@ -112,7 +114,7 @@ impl Chip8 {
                 should_run: true,
                 fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize].to_vec(),
                 keys: [false; AMOUNT_KEYS],
-                window, 
+                window,
             })),
             cache: Cache::new(),
         }
@@ -123,7 +125,7 @@ impl Chip8 {
             let block = self.cache.get_or_compile(self.state.clone());
             debug!("pc: {:#x}", self.state.borrow().pc);
             block.execute(self.state.clone());
-            self.state.borrow_mut().pc += 1;
+            // self.state.borrow_mut().pc += 1;
 
             self.refresh_window();
             self.refresh_keys();
@@ -137,10 +139,10 @@ impl Chip8 {
         for entry in state.fb.clone().into_iter().enumerate() {
             let (index, should_place) = entry;
             if should_place {
-                let x = i32::try_from(index % WINDOW_WIDTHusize).unwrap();
-                let y = i32::try_from(index / WINDOW_HEIGHTusize).unwrap();
-                let point = Point::new(x, y);
-                state.window.draw_point(point.clone());
+                let x = i32::try_from(index % WINDOW_WIDTHusize).unwrap() * i32::from(FACTOR);
+                let y = i32::try_from(index / WINDOW_HEIGHTusize).unwrap() * i32::from(FACTOR);
+                let rect = Rect::new(x, y, FACTOR as u32, FACTOR as u32);
+                state.window.draw_rect(rect.clone());
             }
        }
     }
@@ -153,12 +155,15 @@ impl Chip8 {
     fn refresh_keys(&mut self) {
         let mut state = self.state.borrow_mut();
 
-
         for (i, key) in KEY_LAYOUT.iter().enumerate() {
             if state.window.is_key_down(*key) {
                 state.keys[i] = true;
             } else {
                 state.keys[i] = false;
+            }
+
+            if state.keys[4] {
+                state.should_run = false;
             }
         }
     }
