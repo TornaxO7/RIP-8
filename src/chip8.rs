@@ -125,7 +125,7 @@ impl Chip8 {
             let block = self.cache.get_or_compile(self.state.clone());
             debug!("pc: {:#x}", self.state.borrow().pc);
             block.execute(self.state.clone());
-            // self.state.borrow_mut().pc += 1;
+            self.state.borrow_mut().pc += 1;
 
             self.refresh_window();
             self.refresh_keys();
@@ -155,16 +155,16 @@ impl Chip8 {
     fn refresh_keys(&mut self) {
         let mut state = self.state.borrow_mut();
 
-        for (i, key) in KEY_LAYOUT.iter().enumerate() {
-            if state.window.is_key_down(*key) {
+        for (i, &key) in KEY_LAYOUT.iter().enumerate() {
+            if state.window.is_key_down(key) {
+                debug!("Pressed {}", key.name());
                 state.keys[i] = true;
             } else {
+                debug!("Not pressed: {}", key.name());
                 state.keys[i] = false;
             }
 
-            if state.keys[4] {
-                state.should_run = false;
-            }
+            state.should_run = state.keys[4];
         }
     }
 }
