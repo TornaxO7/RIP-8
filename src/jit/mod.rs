@@ -1,8 +1,8 @@
+mod fn_extern;
 mod fn_implementation;
 mod fn_trait_impl;
 mod fn_traits;
 mod frames;
-mod fn_extern;
 
 use frames::StackFrame;
 use log::debug;
@@ -12,14 +12,12 @@ use std::convert::From;
 use std::rc::Rc;
 
 use crate::cache::CompileBlock;
-use crate::chip8::{Chip8State, Chip8Field, INSTRUCTION_SIZE_BYTES};
+use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES};
 use crate::ChipAddr;
 
 use iced_x86::code_asm::CodeAssembler;
 use iced_x86::IcedError;
 use memmap2::MmapMut;
-
-pub type InstructionResult = Result<bool, IcedError>;
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -130,10 +128,10 @@ impl JIT {
             .unwrap();
         let wordbyte = u16::from_le_bytes(slice);
 
-        self.compile_instruction(wordbyte).unwrap()
+        self.compile_instruction(wordbyte)
     }
 
-    fn compile_instruction(&mut self, instruction: u16) -> Result<bool, IcedError> {
+    fn compile_instruction(&mut self, instruction: u16) -> bool {
         debug!("Recompiling '{:#x}'", instruction);
         let nibbles: [u8; 4] = [
             u8::try_from((instruction & 0xf000) >> 12).unwrap(),
@@ -187,17 +185,21 @@ impl JIT {
     }
 
     fn get_field_offset(&self, field: Chip8Field) -> usize {
-        let state_addr = &self.chip_state.borrow().mem as * const u8 as usize;
+        let state_addr = &self.chip_state.borrow().mem as *const u8 as usize;
 
         let field_addr = match field {
-            Chip8Field::I => &self.chip_state.borrow().i as * const u16 as usize,
-            Chip8Field::PC => &self.chip_state.borrow().pc as * const u16 as usize,
-            Chip8Field::SP => &self.chip_state.borrow().sp as * const u8 as usize,
-            Chip8Field::Stack => &self.chip_state.borrow().stack as * const u16 as usize,
-            Chip8Field::Reg(index) =>
-                self.chip_state.borrow().regs.get(usize::from(index)).unwrap() as * const u8 as usize,
-            Chip8Field::Delay => &self.chip_state.borrow().delay as * const u8 as usize,
-            Chip8Field::Sound => &self.chip_state.borrow().sound as * const u8 as usize,
+            Chip8Field::I => &self.chip_state.borrow().i as *const u16 as usize,
+            Chip8Field::PC => &self.chip_state.borrow().pc as *const u16 as usize,
+            Chip8Field::SP => &self.chip_state.borrow().sp as *const u8 as usize,
+            Chip8Field::Stack => &self.chip_state.borrow().stack as *const u16 as usize,
+            Chip8Field::Reg(index) => self
+                .chip_state
+                .borrow()
+                .regs
+                .get(usize::from(index))
+                .unwrap() as *const u8 as usize,
+            Chip8Field::Delay => &self.chip_state.borrow().delay as *const u8 as usize,
+            Chip8Field::Sound => &self.chip_state.borrow().sound as *const u8 as usize,
         };
 
         field_addr - state_addr

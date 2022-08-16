@@ -1,17 +1,17 @@
-use super::{InstructionResult, Vx};
+use super::Vx;
 
 pub trait ArgSe<T> {
-    fn se(&mut self, vx: Vx, arg2: T) -> InstructionResult;
+    fn se(&mut self, vx: Vx, arg2: T) -> bool;
 }
 
 pub trait ArgSne<T> {
-    fn sne(&mut self, vx: Vx, arg2: T) -> InstructionResult;
+    fn sne(&mut self, vx: Vx, arg2: T) -> bool;
 }
 
 pub trait ArgLd<T> {
-    fn ld(&mut self, vx: Vx, arg2: T) -> InstructionResult;
+    fn ld(&mut self, vx: Vx, arg2: T) -> bool;
 }
 
 pub trait ArgAdd<T> {
-    fn add(&mut self, vx: Vx, arg2: T) -> InstructionResult;
+    fn add(&mut self, vx: Vx, arg2: T) -> bool;
 }

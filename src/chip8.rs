@@ -112,7 +112,7 @@ impl Chip8 {
                 should_run: true,
                 fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize].to_vec(),
                 keys: [false; AMOUNT_KEYS],
-                window: Window::new("RIP-8", WINDOW_WIDTHu16, WINDOW_HEIGHTu16),
+                window, 
             })),
             cache: Cache::new(),
         }
