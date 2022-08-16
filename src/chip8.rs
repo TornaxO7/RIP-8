@@ -55,7 +55,6 @@ pub enum Chip8Field {
 
 #[repr(C)]
 pub struct Chip8State {
-    pub deine_mudda: u32,
     pub mem: [u8; Chip8::MEM_SIZE],
     pub regs: [u8; Chip8::AMOUNT_REGISTERS],
     pub i: u16,
@@ -74,7 +73,6 @@ pub struct Chip8State {
 impl Default for Chip8State {
     fn default() -> Self {
         Self {
-            deine_mudda: 0xCAFEBABE,
             mem: [0; Chip8::MEM_SIZE],
             regs: [0; Chip8::AMOUNT_REGISTERS],
             i: 0,
@@ -127,7 +125,6 @@ impl Chip8 {
 
         Self {
             state: Rc::new(RefCell::new(Chip8State {
-                deine_mudda: 0xCAFEBABE,
                 mem,
                 regs: [0xff; Chip8::AMOUNT_REGISTERS],
                 i: 0,

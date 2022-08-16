@@ -172,7 +172,7 @@ impl JIT {
     }
 
     fn get_field_offset(&self, field: Chip8Field) -> usize {
-        let state_addr = &self.chip_state.borrow().deine_mudda as *const u32 as usize;
+        let state_addr = &self.chip_state.borrow().mem as *const u8 as usize;
 
         let field_addr = match field {
             Chip8Field::I => &self.chip_state.borrow().i as *const u16 as usize,

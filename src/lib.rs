@@ -1,7 +1,6 @@
 pub mod cache;
 pub mod chip8;
 pub mod jit;
-pub mod ui;
 
 pub type ChipAddr = u16;
 
