@@ -9,8 +9,8 @@ use iced_x86::code_asm::*;
 
 impl ArgSe<Byte> for JIT {
     fn se(&mut self, vx: Vx, arg2: Byte) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
 
         self.x86.mov(ax, word_ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
@@ -32,9 +32,9 @@ impl ArgSe<Byte> for JIT {
 
 impl ArgSe<Vy> for JIT {
     fn se(&mut self, vx: Vx, arg2: Vy) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
-        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(arg2.0));
+        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
 
         // store vx and vy in registers
         self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
@@ -59,8 +59,8 @@ impl ArgSe<Vy> for JIT {
 
 impl ArgSne<Byte> for JIT {
     fn sne(&mut self, vx: Vx, arg2: Byte) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
 
         self.x86.mov(ax, word_ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
@@ -83,9 +83,9 @@ impl ArgSne<Byte> for JIT {
 impl ArgSne<Vy> for JIT {
     // IDEA: almost the same as `se` maybe putting the same lines together.unwrap()
     fn sne(&mut self, vx: Vx, arg2: Vy) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
-        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(arg2.0));
+        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
 
         // store vx and vy in registers
         self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
@@ -110,7 +110,7 @@ impl ArgSne<Vy> for JIT {
 
 impl ArgLd<Byte> for JIT {
     fn ld(&mut self, vx: Vx, arg2: Byte) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
 
         self.x86.mov(al, u32::from(arg2.0)).unwrap();
         self.x86.mov(byte_ptr(vx_addr), al).unwrap();
@@ -121,8 +121,8 @@ impl ArgLd<Byte> for JIT {
 
 impl ArgLd<Vy> for JIT {
     fn ld(&mut self, vx: Vx, arg2: Vy) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(arg2.0));
 
         self.x86.mov(al, byte_ptr(vy_addr)).unwrap();
         self.x86.mov(byte_ptr(vx_addr), al).unwrap();
@@ -133,7 +133,7 @@ impl ArgLd<Vy> for JIT {
 
 impl ArgAdd<Byte> for JIT {
     fn add(&mut self, vx: Vx, arg2: Byte) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
 
         self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
         self.x86.add(al, i32::from(arg2.0)).unwrap();
@@ -145,9 +145,9 @@ impl ArgAdd<Byte> for JIT {
 
 impl ArgAdd<Vy> for JIT {
     fn add(&mut self, vx: Vx, arg2: Vy) -> bool {
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
-        let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
+        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(arg2.0));
+        let vf_addr = di + self.get_field_offset(Chip8Field::Reg(0xf));
 
         // add Vx, Vy
         self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
