@@ -1,17 +1,35 @@
-use crossterm::event::{DisableFocusChange, DisableMouseCapture};
-use crossterm::execute;
-use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
-use tui::backend::CrosstermBackend;
-use tui::Terminal;
+use minifb::{Window, WindowOptions, ScaleMode, Key};
 
 use crate::cache::Cache;
 
-use std::borrow::BorrowMut;
-use std::cell::{RefCell, RefMut};
-use std::io::Stdout;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub const INSTRUCTION_SIZE_BYTES: u16 = 2;
+
+pub const WINDOW_WIDTH: usize = 64;
+pub const WINDOW_HEIGHT: usize = 32;
+pub const PIXEL_CLEAR: u32 = 0;
+pub const PIXEL_DRAW: u32 = u32::MAX;
+
+pub const SPRITES: [u8; 16 * 5] = [
+    0xf0, 0x90, 0x90, 0x90, 0xf0,   // 0
+    0x20, 0x60, 0x20, 0x20, 0x70,   // 1
+    0xf0, 0x10, 0xf0, 0x80, 0xf0,   // 2
+    0xf0, 0x10, 0xf0, 0x10, 0xf0,   // 3
+    0xf0, 0x80, 0xf0, 0x90, 0xf0,   // 4
+    0xf0, 0x80, 0xf0, 0x10, 0xf0,   // 5
+    0xf0, 0x80, 0xf0, 0x90, 0xf0,   // 6
+    0xf0, 0x10, 0x20, 0x40, 0x40,   // 7
+    0xf0, 0x90, 0xf0, 0x90, 0xf0,   // 8
+    0xf0, 0x90, 0xf0, 0x10, 0xf0,   // 9
+    0xf0, 0x90, 0xf0, 0x90, 0x90,   // A
+    0xe0, 0xe0, 0xe0, 0x90, 0xe0,   // B
+    0xf0, 0x80, 0x80, 0x80, 0xf0,   // C
+    0xe0, 0x90, 0x90, 0x90, 0xe0,   // D
+    0xf0, 0x80, 0xf0, 0x80, 0xf0,   // E
+    0xf0, 0x80, 0xf0, 0x80, 0x80,   // F
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Chip8Field {
@@ -34,7 +52,8 @@ pub struct Chip8State {
     pub pc: u16,
     pub sp: u8,
     pub stack: [u16; Chip8::MAX_AMOUNT_STACK],
-    pub term: Terminal<CrosstermBackend<Stdout>>,
+    pub window: Window,
+    pub fb: Vec<u32>,
     should_run: bool,
 }
 
@@ -55,8 +74,11 @@ impl Chip8 {
         }
 
         let mut mem = [0; Chip8::MEM_SIZE];
-        for (index, &value) in binary_content.iter().enumerate() {
+        for (index, &value) in SPRITES.iter().enumerate() {
             mem[index] = value;
+        }
+        for (index, &value) in binary_content.iter().enumerate() {
+            mem[usize::from(Self::START_ADDRESS) + index] = value;
         }
 
         Self {
@@ -69,8 +91,18 @@ impl Chip8 {
                 pc: Self::START_ADDRESS,
                 sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
-                term: Terminal::new(CrosstermBackend::new(std::io::stdout())).unwrap(),
                 should_run: true,
+                fb: [PIXEL_CLEAR; WINDOW_HEIGHT * WINDOW_WIDTH].to_vec(),
+                window: Window::new("RIP-8", WINDOW_WIDTH, WINDOW_HEIGHT, WindowOptions {
+                    borderless: true,
+                    title: true,
+                    resize: false,
+                    scale: minifb::Scale::FitScreen,
+                    scale_mode: ScaleMode::Center,
+                    topmost: true,
+                    transparency: false,
+                    none: false,
+                }).unwrap(),
             })),
             cache: Cache::new(),
         }
@@ -80,7 +112,17 @@ impl Chip8 {
         while self.state.borrow().should_run {
             let block = self.cache.get_or_compile(self.state.clone());
             block.execute(self.state.clone());
+
+            self.refresh_window();
         }
+    }
+
+    pub fn refresh_window(&self) {
+        let buffer = &self.state.borrow().fb.clone();
+        let mut state = self.state.borrow_mut();
+        state.window.update_with_buffer(buffer, WINDOW_WIDTH, WINDOW_HEIGHT).unwrap();
+
+        state.should_run = !state.window.is_key_down(Key::Escape);
     }
 }
 

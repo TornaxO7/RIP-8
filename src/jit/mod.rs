@@ -20,15 +20,19 @@ use memmap2::MmapMut;
 
 pub type InstructionResult = Result<bool, IcedError>;
 
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Vx(pub u8);
 
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Vy(pub u8);
 
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Byte(pub u8);
 
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Addr(pub u16);
 

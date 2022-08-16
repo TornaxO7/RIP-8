@@ -195,9 +195,12 @@ impl JIT {
         Ok(true)
     }
 
-    pub fn ld_i(&mut self, _addr: Addr) -> InstructionResult {
-        let ld_i_addr = fn_extern::ld_i as unsafe extern "C" fn(state: * mut Chip8State, addr: Addr) -> ();
-        self.x86.call(ld_i_addr as u64)?;
+    pub fn ld_i(&mut self, addr: Addr) -> InstructionResult {
+        let i_addr = rdi + self.get_field_offset(Chip8Field::I);
+
+        self.x86.mov(r8, u64::from(addr.0))?;
+        self.x86.mov(ptr(i_addr), r8)?;
+
         Ok(true)
     }
 
@@ -227,14 +230,14 @@ impl JIT {
     }
 
     pub fn skp(&mut self, vx: Vx) -> InstructionResult {
-        let skp_addr = fn_extern::skp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> bool;
+        let skp_addr = fn_extern::skp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
         self.x86.call(skp_addr as u64)?;
 
         todo!()
     }
 
     pub fn sknp(&mut self, vx: Vx) -> InstructionResult {
-        let sknp_addr = fn_extern::sknp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx, vy: Vy, nibble: u8) -> bool;
+        let sknp_addr = fn_extern::sknp as unsafe extern "C" fn(state: * mut Chip8State, vx: Vx) -> ();
         self.x86.call(sknp_addr as u64)?;
 
         todo!()

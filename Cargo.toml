@@ -10,8 +10,7 @@ authors = ["TornaxO7 <tornax07@gmail.com>"]
 fnv = "1.0.7"
 memmap2 = "0.5.6"
 clap = { version =  "3.2.16", features = ["cargo"] }
-crossterm = "0.25.0"
-tui = "0.19"
+minifb = "0.23.0"
 
 [dependencies.iced-x86]
 version = "1.17.0"
