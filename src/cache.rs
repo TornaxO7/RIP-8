@@ -1,4 +1,5 @@
 use fnv::FnvHashMap;
+use log::debug;
 use memmap2::Mmap;
 
 use crate::chip8::Chip8State;
@@ -22,7 +23,10 @@ impl Cache {
 
     pub fn get_or_compile(&mut self, state: Rc<RefCell<Chip8State>>) -> &CompileBlock {
         let pc = state.borrow().pc;
-        self.blocks.entry(pc).or_insert(jit::compile(state))
+        self.blocks.entry(pc).or_insert_with(|| {
+            debug!("Cache miss for {:#x}", pc);
+            jit::compile(state)
+        })
     }
 }
 

@@ -1,8 +1,12 @@
 use clap::{command, Arg};
 
+use log::debug;
 use rip8::run;
 
 fn main() {
+    env_logger::init();
+    debug!("RIP");
+
     let app = command!().about("A CHIP-8 Emulator written in rust.").arg(
         Arg::new("rom")
             .required(true)

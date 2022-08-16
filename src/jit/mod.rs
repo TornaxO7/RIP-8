@@ -5,6 +5,7 @@ mod frames;
 mod fn_extern;
 
 use frames::StackFrame;
+use log::debug;
 
 use std::cell::RefCell;
 use std::convert::From;
@@ -114,6 +115,7 @@ impl JIT {
         let mut pc: ChipAddr = self.chip_state.borrow().pc;
 
         while self.compile_next_instruction(pc) {
+            debug!("Recompiling instruction next at {:#x}", pc);
             pc += INSTRUCTION_SIZE_BYTES;
         }
 
@@ -132,6 +134,7 @@ impl JIT {
     }
 
     fn compile_instruction(&mut self, instruction: u16) -> Result<bool, IcedError> {
+        debug!("Recompiling '{:#x}'", instruction);
         let nibbles: [u8; 4] = [
             u8::try_from((instruction & 0xf000) >> 12).unwrap(),
             u8::try_from((instruction & 0x0f00) >> 8).unwrap(),

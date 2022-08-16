@@ -6,6 +6,7 @@ use super::{
 };
 
 use iced_x86::code_asm::*;
+use log::debug;
 
 impl JIT {
     fn function_call_prolog(&mut self) -> Result<(), IcedError> {
@@ -19,6 +20,9 @@ impl JIT {
     }
 
     pub fn cls(&mut self) -> InstructionResult {
+        debug!("-> CLS");
+
+        debug!("-> CLS");
         self.function_call_prolog()?;
 
         let cls_addr = fn_extern::cls as unsafe extern "C" fn(state: * mut Chip8State) -> ();
@@ -29,6 +33,10 @@ impl JIT {
     }
 
     pub fn ret(&mut self) -> InstructionResult {
+        debug!("-> RET");
+
+        debug!("-> RET");
+
         let sp_addr = rdi + self.get_field_offset(Chip8Field::SP);
         let stack_addr = rdi + self.get_field_offset(Chip8Field::Stack);
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
@@ -47,27 +55,35 @@ impl JIT {
     }
 
     pub fn sys(&mut self, _: Addr) -> InstructionResult {
+        debug!("-> SYS");
+
         // our interpreter is a (modern) chad, so we ignore this one
         Ok(false)
     }
 
     pub fn jp(&mut self, addr: Addr) -> InstructionResult {
+        debug!("-> JP");
+
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
         self.x86.mov(ptr(pc_addr), u32::from(addr.0))?;
         Ok(true)
     }
 
     pub fn call(&mut self, addr: Addr) -> InstructionResult {
+        debug!("-> CALL");
+
         let sp_addr = rdi + self.get_field_offset(Chip8Field::SP);
         let sp_state = usize::from(self.chip_state.borrow().sp);
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
         let stack_addr = rdi + self.get_field_offset(Chip8Field::Stack);
 
         // increment stack pointer
-        self.x86.inc(ptr(sp_addr))?;
+        self.x86.mov(r8, ptr(sp_addr)).unwrap();
+        self.x86.inc(r8).unwrap();
+        self.x86.mov(ptr(sp_addr), r8).unwrap();
 
         // put current pc on top of stack
-        self.x86.mov(r8, ptr(pc_addr))?;
+        self.x86.mov(r8, ptr(pc_addr)).unwrap();
         self.x86.mov(
             ptr(stack_addr) + sp_state * usize::from(INSTRUCTION_SIZE_BYTES),
             r8,
@@ -82,6 +98,7 @@ impl JIT {
     where
         Self: ArgSe<T>,
     {
+        debug!("--> SE");
         <Self as ArgSe<T>>::se(self, vx, arg2)?;
 
         Ok(false)
@@ -91,6 +108,7 @@ impl JIT {
     where
         Self: ArgSne<T>,
     {
+        debug!("--> SNE");
         <Self as ArgSne<T>>::sne(self, vx, arg2)?;
         Ok(false)
     }
@@ -99,6 +117,7 @@ impl JIT {
     where
         Self: ArgLd<T>,
     {
+        debug!("--> LD");
         <Self as ArgLd<T>>::ld(self, vx, arg2)?;
         Ok(true)
     }
@@ -107,11 +126,14 @@ impl JIT {
     where
         Self: ArgAdd<T>,
     {
+        debug!("--> ADD");
         <Self as ArgAdd<T>>::add(self, vx, arg2)?;
         Ok(true)
     }
 
     pub fn or(&mut self, vx: Vx, vy: Vy) -> InstructionResult {
+        debug!("-> OR");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
 
@@ -124,6 +146,8 @@ impl JIT {
     }
 
     pub fn and(&mut self, vx: Vx, vy: Vy) -> InstructionResult {
+        debug!("-> AND");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
 
@@ -135,6 +159,8 @@ impl JIT {
     }
 
     pub fn xor(&mut self, vx: Vx, vy: Vy) -> InstructionResult {
+        debug!("-> XOR");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
 
@@ -146,6 +172,8 @@ impl JIT {
     }
 
     pub fn sub(&mut self, vx: Vx, vy: Vy) -> InstructionResult {
+        debug!("-> SUB");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
         let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
@@ -162,6 +190,8 @@ impl JIT {
     }
 
     pub fn shr(&mut self, vx: Vx, _: Vy) -> InstructionResult {
+        debug!("-> SHR");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
 
@@ -177,6 +207,8 @@ impl JIT {
     }
 
     pub fn subn(&mut self, vx: Vx, vy: Vy) -> InstructionResult {
+        debug!("-> SUBN");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
         let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
@@ -195,6 +227,8 @@ impl JIT {
     }
 
     pub fn shl(&mut self, vx: Vx, _: Vy) -> InstructionResult {
+        debug!("-> SHL");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
 
@@ -210,6 +244,8 @@ impl JIT {
     }
 
     pub fn ld_i(&mut self, addr: Addr) -> InstructionResult {
+        debug!("-> LD_I");
+
         let i_addr = rdi + self.get_field_offset(Chip8Field::I);
 
         self.x86.mov(r8, u64::from(addr.0))?;
@@ -219,6 +255,8 @@ impl JIT {
     }
 
     pub fn ld_v0(&mut self, addr: Addr) -> InstructionResult {
+        debug!("-> LD_V0");
+
         let i_addr = rdi + self.get_field_offset(Chip8Field::I);
 
         self.x86.mov(r8, u64::from(addr.0))?;
@@ -228,6 +266,8 @@ impl JIT {
     }
 
     pub fn rnd(&mut self, vx: Vx, kk: Byte) -> InstructionResult {
+        debug!("-> RND");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
         self.x86.rdrand(r8)?;
@@ -238,6 +278,8 @@ impl JIT {
     }
 
     pub fn drw(&mut self, vx: Vx, vy: Vy, nibble: u8) -> InstructionResult {
+        debug!("-> DRW");
+
         self.function_call_prolog()?;
 
         self.x86.push(u32::from(vx.0))?;
@@ -251,6 +293,8 @@ impl JIT {
     }
 
     pub fn skp(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> SKP");
+
         self.function_call_prolog()?;
 
         self.x86.push(u32::from(vx.0))?;
@@ -262,6 +306,8 @@ impl JIT {
     }
 
     pub fn sknp(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> SKNP");
+
         self.function_call_prolog()?;
 
         self.x86.push(u32::from(vx.0))?;
@@ -274,6 +320,8 @@ impl JIT {
     }
 
     pub fn ld_x_dt(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_X_DT");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let delay_timer_addr = rdi + self.get_field_offset(Chip8Field::Delay);
 
@@ -284,6 +332,8 @@ impl JIT {
     }
 
     pub fn ld_k(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_K");
+
         self.function_call_prolog()?;
 
         self.x86.push(u32::from(vx.0))?;
@@ -295,6 +345,8 @@ impl JIT {
     }
 
     pub fn ld_dt_x(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_DT_X");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let delay_timer_addr = rdi + self.get_field_offset(Chip8Field::Delay);
 
@@ -305,6 +357,8 @@ impl JIT {
     }
 
     pub fn ld_st(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_ST");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let sound_addr = rdi + self.get_field_offset(Chip8Field::Sound);
 
@@ -315,6 +369,8 @@ impl JIT {
     }
 
     pub fn add_i(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> ADD_I");
+
         let i_addr = rdi + self.get_field_offset(Chip8Field::I);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
@@ -327,6 +383,8 @@ impl JIT {
     }
 
     pub fn ld_f(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_F");
+
         self.function_call_prolog()?;
 
         self.x86.push(u32::from(vx.0))?;
@@ -338,6 +396,8 @@ impl JIT {
     }
 
     pub fn ld_b(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_B");
+
         self.function_call_prolog()?;
 
         self.x86.push(u32::from(vx.0))?;
@@ -349,6 +409,8 @@ impl JIT {
     }
 
     pub fn ld_i_x(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_I_X");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let v0_addr = rdi + self.get_field_offset(Chip8Field::Reg(0));
         let i_addr = rdi + self.get_field_offset(Chip8Field::I);
@@ -376,6 +438,8 @@ impl JIT {
     }
 
     pub fn ld_x_i(&mut self, vx: Vx) -> InstructionResult {
+        debug!("-> LD_X_I");
+
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let v0_addr = rdi + self.get_field_offset(Chip8Field::Reg(0));
         let i_addr = rdi + self.get_field_offset(Chip8Field::I);

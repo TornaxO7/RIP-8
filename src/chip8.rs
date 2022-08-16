@@ -1,4 +1,5 @@
-use minifb::{Window, WindowOptions, ScaleMode, Key};
+use log::debug;
+use simple::{Point, Window, Key};
 
 use crate::cache::Cache;
 
@@ -7,28 +8,41 @@ use std::rc::Rc;
 
 pub const INSTRUCTION_SIZE_BYTES: u16 = 2;
 
-pub const WINDOW_WIDTH: usize = 64;
-pub const WINDOW_HEIGHT: usize = 32;
-pub const PIXEL_CLEAR: u32 = 0;
-pub const PIXEL_DRAW: u32 = u32::MAX;
+#[allow(non_upper_case_globals)]
+pub const WINDOW_WIDTHu16: u16 = 64;
+#[allow(non_upper_case_globals)]
+pub const WINDOW_HEIGHTu16: u16 = 32;
+#[allow(non_upper_case_globals)]
+pub const WINDOW_WIDTHusize: usize = WINDOW_WIDTHu16 as usize;
+#[allow(non_upper_case_globals)]
+pub const WINDOW_HEIGHTusize: usize = WINDOW_HEIGHTu16 as usize;
 
 pub const SPRITES: [u8; 16 * 5] = [
-    0xf0, 0x90, 0x90, 0x90, 0xf0,   // 0
-    0x20, 0x60, 0x20, 0x20, 0x70,   // 1
-    0xf0, 0x10, 0xf0, 0x80, 0xf0,   // 2
-    0xf0, 0x10, 0xf0, 0x10, 0xf0,   // 3
-    0xf0, 0x80, 0xf0, 0x90, 0xf0,   // 4
-    0xf0, 0x80, 0xf0, 0x10, 0xf0,   // 5
-    0xf0, 0x80, 0xf0, 0x90, 0xf0,   // 6
-    0xf0, 0x10, 0x20, 0x40, 0x40,   // 7
-    0xf0, 0x90, 0xf0, 0x90, 0xf0,   // 8
-    0xf0, 0x90, 0xf0, 0x10, 0xf0,   // 9
-    0xf0, 0x90, 0xf0, 0x90, 0x90,   // A
-    0xe0, 0xe0, 0xe0, 0x90, 0xe0,   // B
-    0xf0, 0x80, 0x80, 0x80, 0xf0,   // C
-    0xe0, 0x90, 0x90, 0x90, 0xe0,   // D
-    0xf0, 0x80, 0xf0, 0x80, 0xf0,   // E
-    0xf0, 0x80, 0xf0, 0x80, 0x80,   // F
+    0xf0, 0x90, 0x90, 0x90, 0xf0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xf0, 0x10, 0xf0, 0x80, 0xf0, // 2
+    0xf0, 0x10, 0xf0, 0x10, 0xf0, // 3
+    0xf0, 0x80, 0xf0, 0x90, 0xf0, // 4
+    0xf0, 0x80, 0xf0, 0x10, 0xf0, // 5
+    0xf0, 0x80, 0xf0, 0x90, 0xf0, // 6
+    0xf0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xf0, 0x90, 0xf0, 0x90, 0xf0, // 8
+    0xf0, 0x90, 0xf0, 0x10, 0xf0, // 9
+    0xf0, 0x90, 0xf0, 0x90, 0x90, // A
+    0xe0, 0xe0, 0xe0, 0x90, 0xe0, // B
+    0xf0, 0x80, 0x80, 0x80, 0xf0, // C
+    0xe0, 0x90, 0x90, 0x90, 0xe0, // D
+    0xf0, 0x80, 0xf0, 0x80, 0xf0, // E
+    0xf0, 0x80, 0xf0, 0x80, 0x80, // F
+];
+
+pub const AMOUNT_KEYS: usize = 16;
+pub const KEY_LAYOUT: [Key; AMOUNT_KEYS] =
+[
+    Key::Num1, Key::Num2, Key::Num3, Key::Num4,
+    Key::Q, Key::W, Key::E, Key::R,
+    Key::A, Key::S, Key::D, Key::F,
+    Key::Z, Key::X, Key::C, Key::V
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -53,7 +67,8 @@ pub struct Chip8State {
     pub sp: u8,
     pub stack: [u16; Chip8::MAX_AMOUNT_STACK],
     pub window: Window,
-    pub fb: Vec<u32>,
+    pub fb: Vec<bool>,
+    pub keys: [bool; AMOUNT_KEYS],
     should_run: bool,
 }
 
@@ -81,6 +96,9 @@ impl Chip8 {
             mem[usize::from(Self::START_ADDRESS) + index] = value;
         }
 
+        let mut window = Window::new("RIP-8", WINDOW_WIDTHu16, WINDOW_HEIGHTu16);
+        window.set_color(u8::MAX, u8::MAX, u8::MAX, u8::MAX);
+
         Self {
             state: Rc::new(RefCell::new(Chip8State {
                 mem,
@@ -92,17 +110,9 @@ impl Chip8 {
                 sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
                 should_run: true,
-                fb: [PIXEL_CLEAR; WINDOW_HEIGHT * WINDOW_WIDTH].to_vec(),
-                window: Window::new("RIP-8", WINDOW_WIDTH, WINDOW_HEIGHT, WindowOptions {
-                    borderless: true,
-                    title: true,
-                    resize: false,
-                    scale: minifb::Scale::FitScreen,
-                    scale_mode: ScaleMode::Center,
-                    topmost: true,
-                    transparency: false,
-                    none: false,
-                }).unwrap(),
+                fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize].to_vec(),
+                keys: [false; AMOUNT_KEYS],
+                window: Window::new("RIP-8", WINDOW_WIDTHu16, WINDOW_HEIGHTu16),
             })),
             cache: Cache::new(),
         }
@@ -111,18 +121,46 @@ impl Chip8 {
     pub fn run(&mut self) {
         while self.state.borrow().should_run {
             let block = self.cache.get_or_compile(self.state.clone());
+            debug!("pc: {:#x}", self.state.borrow().pc);
             block.execute(self.state.clone());
+            self.state.borrow_mut().pc += 1;
 
             self.refresh_window();
+            self.refresh_keys();
         }
     }
 
-    pub fn refresh_window(&self) {
-        let buffer = &self.state.borrow().fb.clone();
+    pub fn refresh_window(&mut self) {
+        self.clear_screen();
         let mut state = self.state.borrow_mut();
-        state.window.update_with_buffer(buffer, WINDOW_WIDTH, WINDOW_HEIGHT).unwrap();
 
-        state.should_run = !state.window.is_key_down(Key::Escape);
+        for entry in state.fb.clone().into_iter().enumerate() {
+            let (index, should_place) = entry;
+            if should_place {
+                let x = i32::try_from(index % WINDOW_WIDTHusize).unwrap();
+                let y = i32::try_from(index / WINDOW_HEIGHTusize).unwrap();
+                let point = Point::new(x, y);
+                state.window.draw_point(point.clone());
+            }
+       }
+    }
+
+    fn clear_screen(&mut self) {
+        let mut state = self.state.borrow_mut();
+        state.window.clear_to_color(0, 0, 0);
+    }
+
+    fn refresh_keys(&mut self) {
+        let mut state = self.state.borrow_mut();
+
+
+        for (i, key) in KEY_LAYOUT.iter().enumerate() {
+            if state.window.is_key_down(*key) {
+                state.keys[i] = true;
+            } else {
+                state.keys[i] = false;
+            }
+        }
     }
 }
 
