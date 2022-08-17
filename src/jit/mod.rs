@@ -179,41 +179,24 @@ impl JIT {
         }
     }
 
-    fn get_field_offset(&self, field: Chip8Field) -> usize {
-        let state_addr = &self.chip_state.borrow().mem as *const u8 as usize;
+    fn get_field_offset(&self, field: Chip8Field) -> Addr {
+        let state_addr = &self.chip_state.borrow().mem as *const u8 as Addr;
 
         let field_addr = match field {
-            Chip8Field::I => &self.chip_state.borrow().i as *const u64 as usize,
-            Chip8Field::PC => &self.chip_state.borrow().pc as *const u64 as usize,
-            Chip8Field::SP => &self.chip_state.borrow().sp as *const u64 as usize,
-            Chip8Field::Stack => &self.chip_state.borrow().stack as *const u64 as usize,
+            Chip8Field::I => &self.chip_state.borrow().i as *const u64 as Addr,
+            Chip8Field::PC => &self.chip_state.borrow().pc as *const u64 as Addr,
+            Chip8Field::SP => &self.chip_state.borrow().sp as *const u64 as Addr,
+            Chip8Field::Stack => &self.chip_state.borrow().stack as *const u64 as Addr,
             Chip8Field::Reg(index) => self
                 .chip_state
                 .borrow()
                 .regs
                 .get(usize::from(index))
-                .unwrap() as *const u64 as usize,
-            Chip8Field::Delay => &self.chip_state.borrow().delay as *const u64 as usize,
-            Chip8Field::Sound => &self.chip_state.borrow().sound as *const u64 as usize,
+                .unwrap() as *const u64 as Addr,
+            Chip8Field::Delay => &self.chip_state.borrow().delay as *const u64 as Addr,
+            Chip8Field::Sound => &self.chip_state.borrow().sound as *const u64 as Addr,
         };
 
         field_addr - state_addr
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{rc::Rc, cell::RefCell};
-
-    use crate::chip8::{Chip8State, Chip8, Chip8Field};
-
-    use super::JIT;
-
-    #[test]
-    fn test_offset_mem() {
-        let state = Rc::new(RefCell::new(Chip8State::default()));
-        let jit = JIT::new(state);
-
-        assert_eq!(jit.get_field_offset(Chip8Field::PC), Chip8::MEM_SIZE + Chip8::AMOUNT_REGISTERS + 2 + 1 + 1);
     }
 }

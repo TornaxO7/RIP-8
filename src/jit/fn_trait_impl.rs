@@ -19,8 +19,9 @@ impl ArgSe<Byte> for JIT {
         self.x86.add(r9, r11).unwrap();
 
         // cmp vx, kk
+        self.x86.mov(r11, u64::from(arg2.0)).unwrap();
         self.x86.mov(r10, qword_ptr(vx_addr)).unwrap();
-        self.x86.cmp(r10, i32::from(arg2.0)).unwrap();
+        self.x86.cmp(r10, r11).unwrap();
 
         // set pc if vx == kk (update r8 if needed)
         self.x86.cmove(r8, r9).unwrap();
@@ -66,12 +67,14 @@ impl ArgSne<Byte> for JIT {
 
         self.x86.mov(r8, qword_ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
+        self.x86.mov(r11, INSTRUCTION_SIZE_BYTES).unwrap();
         self.x86.mov(r9, qword_ptr(pc_addr)).unwrap();
-        self.x86.add(r9, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
+        self.x86.add(r9, r11).unwrap();
 
         // cmp vx, kk
+        self.x86.mov(r11, u64::from(arg2.0)).unwrap();
         self.x86.mov(r10, qword_ptr(vx_addr)).unwrap();
-        self.x86.cmp(r10, i32::from(arg2.0)).unwrap();
+        self.x86.cmp(r10, r11).unwrap();
 
         // set pc if vx != kk (update r8 if needed)
         self.x86.cmovne(r8, r9).unwrap();
@@ -94,15 +97,17 @@ impl ArgSne<Vy> for JIT {
         self.x86.mov(r9, qword_ptr(vy_addr)).unwrap();
 
         self.x86.mov(r10, qword_ptr(pc_addr)).unwrap();
+
         // prepare `pc + 2`
+        self.x86.mov(r12, INSTRUCTION_SIZE_BYTES).unwrap();
         self.x86.mov(r11, qword_ptr(pc_addr)).unwrap();
-        self.x86.add(r11, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
+        self.x86.add(r11, r12).unwrap();
 
         // cmp vx, vy
         self.x86.cmp(r8, r9).unwrap();
 
         // set pc if vx != kk (update r10 if needed)
-        self.x86.cmovne(r10, dx).unwrap();
+        self.x86.cmovne(r10, r11).unwrap();
 
         self.x86.mov(qword_ptr(pc_addr), r10).unwrap();
 
@@ -138,7 +143,8 @@ impl ArgAdd<Byte> for JIT {
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
         self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
-        self.x86.add(r8, i32::from(arg2.0)).unwrap();
+        self.x86.mov(r9, u64::from(arg2.0)).unwrap();
+        self.x86.add(r8, r9).unwrap();
         self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         true

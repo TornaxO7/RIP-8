@@ -41,15 +41,18 @@ impl JIT {
         let stack_addr = rdi + self.get_field_offset(Chip8Field::Stack);
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
-        // set pc to top value of stack
-        // mov pc, ptr(stack_addr) + sp * INSTRUCTION_SIZE_BYTES
-        self.x86.mov(r8, qword_ptr(stack_addr)).unwrap();
+        self.x86.mov(r8, stack_addr).unwrap();
+        self.x86.mov(r9, pc_addr).unwrap();
 
         // calculate sp * INSTRUCTION_SIZE_BYTES
+        self.x86.mov(r10, INSTRUCTION_SIZE_BYTES).unwrap();
         self.x86.mov(rax, qword_ptr(sp_addr)).unwrap();
-        self.x86.mov(r9, INSTRUCTION_SIZE_BYTES).unwrap();
-        self.x86.mul(r9).unwrap();
+        self.x86.mul(r10).unwrap();
         self.x86.add(r8, rax).unwrap();
+
+        // mov pc, ptr(stack_addr) + sp * INSTRUCTION_SIZE_BYTES
+        self.x86.mov(r10, qword_ptr(r8)).unwrap();
+        self.x86.mov(qword_ptr(r9), r10).unwrap();
 
         // decrement sp
         self.x86.dec(qword_ptr(sp_addr)).unwrap();
@@ -61,7 +64,7 @@ impl JIT {
         // our jit is a modern jit, so we're ignoring this one
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
-        self.x86.mov(r8, word_ptr(pc_addr)).unwrap();
+        self.x86.mov(r8, qword_ptr(pc_addr)).unwrap();
         self.x86.mov(r9, INSTRUCTION_SIZE_BYTES).unwrap();
         self.x86.add(r8, r9).unwrap();
         self.x86.mov(qword_ptr(pc_addr), r8).unwrap();
@@ -91,7 +94,7 @@ impl JIT {
         self.x86.mov(qword_ptr(sp_addr), rax).unwrap();
 
         // put current pc on top of stack
-        self.x86.mov(r9, word_ptr(pc_addr)).unwrap();
+        self.x86.mov(r9, qword_ptr(pc_addr)).unwrap();
 
         // calculate address of the stack, where to store pc
         self.x86.mov(r10, stack_addr).unwrap();
@@ -304,11 +307,16 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.push(u32::from(vx.0)).unwrap();
-        self.x86.push(u32::from(vy.0)).unwrap();
-        self.x86.push(u32::from(nibble)).unwrap();
+        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+        self.x86.mov(r9, u64::from(vy.0)).unwrap();
+        self.x86.mov(r10, u64::from(nibble)).unwrap();
+
+        self.x86.push(r8).unwrap();
+        self.x86.push(r9).unwrap();
+        self.x86.push(r10).unwrap();
+
         let drw_addr = fn_extern::drw
-            as unsafe extern "C" fn(state: *mut Chip8State, vx: u32, vy: u32, nibble: u32) -> ();
+            as unsafe extern "C" fn(state: *mut Chip8State, vx: u64, vy: u64, nibble: u64) -> ();
         self.x86.call(drw_addr as u64).unwrap();
 
         self.function_call_epilog();
@@ -320,9 +328,11 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.push(u32::from(vx.0)).unwrap();
+        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+
+        self.x86.push(r8).unwrap();
         let skp_addr =
-            fn_extern::skp as unsafe extern "C" fn(state: *mut Chip8State, vx: u32) -> ();
+            fn_extern::skp as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
         self.x86.call(skp_addr as u64).unwrap();
 
         self.function_call_epilog();
@@ -334,9 +344,11 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.push(u32::from(vx.0)).unwrap();
+        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+
+        self.x86.push(r8).unwrap();
         let sknp_addr =
-            fn_extern::sknp as unsafe extern "C" fn(state: *mut Chip8State, vx: u32) -> ();
+            fn_extern::sknp as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
         self.x86.call(sknp_addr as u64).unwrap();
 
         self.function_call_epilog();
@@ -361,9 +373,11 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.push(u32::from(vx.0)).unwrap();
+        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+        self.x86.push(r8).unwrap();
+
         let ld_k_addr =
-            fn_extern::ld_k as unsafe extern "C" fn(state: *mut Chip8State, vx: u32) -> ();
+            fn_extern::ld_k as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
         self.x86.call(ld_k_addr as u64).unwrap();
 
         self.function_call_epilog();
@@ -413,9 +427,11 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.push(u32::from(vx.0)).unwrap();
+        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+        self.x86.push(r8).unwrap();
+
         let ld_f_addr =
-            fn_extern::ld_f as unsafe extern "C" fn(state: *mut Chip8State, vx: u32) -> ();
+            fn_extern::ld_f as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
         self.x86.call(ld_f_addr as u64).unwrap();
 
         self.function_call_epilog();
@@ -427,9 +443,11 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.push(u32::from(vx.0)).unwrap();
+        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+        self.x86.push(r8).unwrap();
+
         let ld_b_addr =
-            fn_extern::ld_b as unsafe extern "C" fn(state: *mut Chip8State, vx: u32) -> ();
+            fn_extern::ld_b as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
         self.x86.call(ld_b_addr as u64).unwrap();
 
         self.function_call_epilog();

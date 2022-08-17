@@ -110,12 +110,12 @@ impl Chip8 {
             panic!("ROM is too big");
         }
 
-        let mut mem = [0u64; Chip8::MEM_SIZE];
+        let mut mem = [0u8; Chip8::MEM_SIZE];
         for (index, &value) in SPRITES.iter().enumerate() {
-            mem[index] = u64::from(value);
+            mem[index] = value;
         }
         for (index, &value) in binary_content.iter().enumerate() {
-            mem[Self::START_ADDRESS as usize + index] = u64::from(value);
+            mem[Self::START_ADDRESS as usize + index] = value;
         }
 
         let window = Window::new(
