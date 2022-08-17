@@ -72,26 +72,6 @@ pub struct Chip8State {
     should_run: bool,
 }
 
-impl Default for Chip8State {
-    fn default() -> Self {
-        Self {
-            mem: [0; Chip8::MEM_SIZE],
-            regs: [0; Chip8::AMOUNT_REGISTERS],
-            i: 0,
-            delay: 0,
-            sound: 0,
-            pc: Chip8::START_ADDRESS,
-            sp: 0,
-            stack: [0; Chip8::MAX_AMOUNT_STACK],
-            window: Window::new("RIP-8-TEST", 100, 100, WindowOptions::default()).unwrap(),
-            fb: Vec::new(),
-            keys: [false; AMOUNT_KEYS],
-            tick: Instant::now(),
-            should_run: true,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Chip8 {
     state: Rc<RefCell<Chip8State>>,
@@ -148,7 +128,6 @@ impl Chip8 {
 
     pub fn run(&mut self) {
         while self.state.borrow().should_run {
-            debug!("{:#?}", self.state);
             let block = self.cache.get_or_compile(self.state.clone());
             block.execute(self.state.clone());
 

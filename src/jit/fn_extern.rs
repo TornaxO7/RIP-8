@@ -38,6 +38,9 @@ pub unsafe extern "C" fn cls(state: *mut Chip8State) {
 }
 
 pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u64) {
+    let vx = u8::try_from(vx & 0xff).unwrap();
+    let vy = u8::try_from(vy & 0xff).unwrap();
+    let nibble = u8::try_from(nibble & 0xff).unwrap();
     let mut index = usize::try_from(vx * vy).unwrap();
 
     for _ in 0..nibble {
@@ -48,6 +51,7 @@ pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u
 }
 
 pub unsafe extern "C" fn skp(state: *mut Chip8State, vx: u64) {
+    let vx = u8::try_from(vx & 0xff).unwrap();
     let state = &mut *state;
 
     if state.keys[usize::try_from(vx).unwrap()] {
@@ -56,6 +60,7 @@ pub unsafe extern "C" fn skp(state: *mut Chip8State, vx: u64) {
 }
 
 pub unsafe extern "C" fn sknp(state: *mut Chip8State, vx: u64) {
+    let vx = u8::try_from(vx & 0xff).unwrap();
     let state = &mut *state;
 
     if !state.keys[usize::try_from(vx).unwrap()] {
@@ -64,6 +69,7 @@ pub unsafe extern "C" fn sknp(state: *mut Chip8State, vx: u64) {
 }
 
 pub unsafe extern "C" fn ld_k(state: *mut Chip8State, vx: u64) {
+    let vx = u8::try_from(vx & 0xff).unwrap();
     let mut found_key = false;
     let state = &mut *state;
     let vx = usize::try_from(vx).unwrap();
@@ -81,11 +87,13 @@ pub unsafe extern "C" fn ld_k(state: *mut Chip8State, vx: u64) {
 }
 
 pub unsafe extern "C" fn ld_f(state: *mut Chip8State, vx: u64) {
+    let vx = u8::try_from(vx & 0xff).unwrap();
     let index = u64::from(vx * 5);
     (*state).i = index;
 }
 
 pub unsafe extern "C" fn ld_b(state: *mut Chip8State, vx: u64) {
+    let vx = u8::try_from(vx & 0xff).unwrap();
     let state = &mut *state;
     let start_index = usize::try_from(state.i).unwrap();
     state.mem[start_index] = u8::try_from(vx / 100).unwrap();
