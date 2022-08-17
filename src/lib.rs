@@ -2,9 +2,9 @@ pub mod cache;
 pub mod chip8;
 pub mod jit;
 
-pub type ChipAddr = u16;
-
 use std::fs::read;
+
+pub type Addr = u64;
 
 use chip8::Chip8;
 

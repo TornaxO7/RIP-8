@@ -3,7 +3,7 @@ use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES};
 use super::{
     fn_extern,
     fn_traits::{ArgAdd, ArgLd, ArgSe, ArgSne},
-    Addr, Byte, Vx, Vy, JIT,
+    Nnn, Byte, Vx, Vy, JIT,
 };
 
 use iced_x86::code_asm::*;
@@ -11,11 +11,13 @@ use log::debug;
 
 impl JIT {
     fn function_call_prolog(&mut self) {
-        self.x86.push(di).unwrap();
+        self.x86.push(rbp).unwrap();
+        self.x86.mov(rbp, rsp).unwrap();
     }
 
     fn function_call_epilog(&mut self) {
-        self.x86.pop(di).unwrap();
+        self.x86.mov(rsp, rbp).unwrap();
+        self.x86.pop(rbp).unwrap();
     }
 
     pub fn cls(&mut self) -> bool {
@@ -25,8 +27,8 @@ impl JIT {
         self.function_call_prolog();
 
         let cls_addr = fn_extern::cls as unsafe extern "C" fn(state: *mut Chip8State) -> ();
-        self.x86.mov(ax, cls_addr as u32).unwrap();
-        self.x86.call(ax).unwrap();
+        self.x86.mov(rax, cls_addr as u64).unwrap();
+        self.x86.call(rax).unwrap();
 
         self.function_call_epilog();
         true
@@ -35,69 +37,78 @@ impl JIT {
     pub fn ret(&mut self) -> bool {
         debug!("-> RET");
 
-        let sp_addr = di + self.get_field_offset(Chip8Field::SP);
-        let stack_addr = di + self.get_field_offset(Chip8Field::Stack);
-        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
+        let sp_addr = rdi + self.get_field_offset(Chip8Field::SP);
+        let stack_addr = rdi + self.get_field_offset(Chip8Field::Stack);
+        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
         // set pc to top value of stack
         // mov pc, ptr(stack_addr) + sp * INSTRUCTION_SIZE_BYTES
-        self.x86.mov(al, byte_ptr(sp_addr)).unwrap();
-        self.x86.mov(cl, u32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
-        self.x86.mul(cl).unwrap(); // result will be stored in `ax`
-        self.x86.add(ax, word_ptr(stack_addr)).unwrap();
-        self.x86.mov(word_ptr(pc_addr), ax).unwrap();
+        self.x86.mov(r8, qword_ptr(stack_addr)).unwrap();
+
+        // calculate sp * INSTRUCTION_SIZE_BYTES
+        self.x86.mov(rax, qword_ptr(sp_addr)).unwrap();
+        self.x86.mov(r9, INSTRUCTION_SIZE_BYTES).unwrap();
+        self.x86.mul(r9).unwrap();
+        self.x86.add(r8, rax).unwrap();
 
         // decrement sp
-        self.x86.dec(byte_ptr(sp_addr)).unwrap();
+        self.x86.dec(qword_ptr(sp_addr)).unwrap();
         true
     }
 
-    pub fn sys(&mut self, _: Addr) -> bool {
+    pub fn sys(&mut self, _: Nnn) -> bool {
         debug!("-> SYS");
         // our jit is a modern jit, so we're ignoring this one
-        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
+        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
-        self.x86.mov(ax, word_ptr(pc_addr)).unwrap();
-        self.x86.add(ax, i32::from(INSTRUCTION_SIZE_BYTES)).unwrap();
-        self.x86.mov(word_ptr(pc_addr), ax).unwrap();
+        self.x86.mov(r8, word_ptr(pc_addr)).unwrap();
+        self.x86.mov(r9, INSTRUCTION_SIZE_BYTES).unwrap();
+        self.x86.add(r8, r9).unwrap();
+        self.x86.mov(qword_ptr(pc_addr), r8).unwrap();
 
         false
     }
 
-    pub fn jp(&mut self, addr: Addr) -> bool {
+    pub fn jp(&mut self, addr: Nnn) -> bool {
         debug!("-> JP");
 
-        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
-        self.x86.mov(ax, u32::from(addr.0)).unwrap();
-        self.x86.mov(word_ptr(pc_addr), ax).unwrap();
+        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
+        self.x86.mov(r8, addr.0 as u64).unwrap();
+        self.x86.mov(qword_ptr(pc_addr), r8).unwrap();
         true
     }
 
-    pub fn call(&mut self, addr: Addr) -> bool {
+    pub fn call(&mut self, addr: Nnn) -> bool {
         debug!("-> CALL");
 
-        let sp_addr = di + self.get_field_offset(Chip8Field::SP);
-        let sp_state = usize::from(self.chip_state.borrow().sp);
-        let pc_addr = di + self.get_field_offset(Chip8Field::PC);
-        let stack_addr = di + self.get_field_offset(Chip8Field::Stack);
+        let sp_addr = rdi + self.get_field_offset(Chip8Field::SP);
+        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
+        let stack_addr = rdi + self.get_field_offset(Chip8Field::Stack);
 
         // increment stack pointer
-        self.x86.mov(al, byte_ptr(sp_addr)).unwrap();
-        self.x86.inc(al).unwrap();
-        self.x86.mov(byte_ptr(sp_addr), al).unwrap();
+        self.x86.mov(rax, qword_ptr(sp_addr)).unwrap();
+        self.x86.inc(rax).unwrap();
+        self.x86.mov(qword_ptr(sp_addr), rax).unwrap();
 
         // put current pc on top of stack
-        self.x86.mov(ax, word_ptr(pc_addr)).unwrap();
-        self.x86
-            .mov(
-                word_ptr(stack_addr) + sp_state * usize::from(INSTRUCTION_SIZE_BYTES),
-                ax,
-            )
-            .unwrap();
+        self.x86.mov(r9, word_ptr(pc_addr)).unwrap();
+
+        // calculate address of the stack, where to store pc
+        self.x86.mov(r10, stack_addr).unwrap();
+
+        // sp * INSTRUCTION_SIZE_BYTES
+        self.x86.mov(r11, INSTRUCTION_SIZE_BYTES).unwrap();
+        self.x86.mul(r11).unwrap();
+
+        // stack_addr + (sp * INSTRUCTION_SIZE_BYTES)
+        self.x86.add(r10, rax).unwrap();
+
+        // move pc value to stack
+        self.x86.mov(qword_ptr(r10), r9).unwrap();
 
         // set pc to `addr`
-        self.x86.mov(ax, u32::from(addr.0)).unwrap();
-        self.x86.mov(word_ptr(pc_addr), ax).unwrap();
+        self.x86.mov(r8, u64::from(addr.0)).unwrap();
+        self.x86.mov(qword_ptr(pc_addr), r8).unwrap();
         true
     }
 
@@ -140,13 +151,13 @@ impl JIT {
     pub fn or(&mut self, vx: Vx, vy: Vy) -> bool {
         debug!("-> OR");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(vy.0));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
 
         // do bitwise or
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.or(al, byte_ptr(vy_addr)).unwrap();
-        self.x86.mov(byte_ptr(vx_addr), al).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.or(r8, qword_ptr(vy_addr)).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         true
     }
@@ -154,44 +165,44 @@ impl JIT {
     pub fn and(&mut self, vx: Vx, vy: Vy) -> bool {
         debug!("-> AND");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(vy.0));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
 
         // do bitwise and
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.and(al, byte_ptr(vy_addr)).unwrap();
-        self.x86.mov(byte_ptr(vx_addr), al).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.and(r8, qword_ptr(vy_addr)).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
         true
     }
 
     pub fn xor(&mut self, vx: Vx, vy: Vy) -> bool {
         debug!("-> XOR");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(vy.0));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
 
         // do bitwise and
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.xor(al, byte_ptr(vy_addr)).unwrap();
-        self.x86.mov(byte_ptr(vx_addr), al).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.xor(r8, qword_ptr(vy_addr)).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
         true
     }
 
     pub fn sub(&mut self, vx: Vx, vy: Vy) -> bool {
         debug!("-> SUB");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(vy.0));
-        let vf_addr = di + self.get_field_offset(Chip8Field::Reg(0xf));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
+        let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
 
         // sub
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.mov(cl, byte_ptr(vy_addr)).unwrap();
-        self.x86.sub(al, cl).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(r9, qword_ptr(vy_addr)).unwrap();
+        self.x86.sub(r8, r9).unwrap();
 
         // set Vf
-        self.x86.mov(al, vf_addr).unwrap();
-        self.x86.setnc(byte_ptr(al)).unwrap();
+        self.x86.mov(r8, vf_addr).unwrap();
+        self.x86.setnc(qword_ptr(r8)).unwrap();
 
         true
     }
@@ -199,17 +210,17 @@ impl JIT {
     pub fn shr(&mut self, vx: Vx, _: Vy) -> bool {
         debug!("-> SHR");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vf_addr = di + self.get_field_offset(Chip8Field::Reg(0xf));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
 
         // set Vf
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.shr(al, 1u32).unwrap();
-        self.x86.mov(bl, vf_addr).unwrap();
-        self.x86.setb(byte_ptr(bl)).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.shr(r8, 1u32).unwrap();
+        self.x86.mov(r8, vf_addr).unwrap();
+        self.x86.setb(qword_ptr(r8)).unwrap();
 
         // save shr
-        self.x86.mov(byte_ptr(vx_addr), al).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         true
     }
@@ -217,20 +228,20 @@ impl JIT {
     pub fn subn(&mut self, vx: Vx, vy: Vy) -> bool {
         debug!("-> SUBN");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = di + self.get_field_offset(Chip8Field::Reg(vy.0));
-        let vf_addr = di + self.get_field_offset(Chip8Field::Reg(0xf));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
+        let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
 
         // sub Vy, Vx
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.mov(bl, byte_ptr(vy_addr)).unwrap();
-        self.x86.sub(bl, al).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(r9, qword_ptr(vy_addr)).unwrap();
+        self.x86.sub(r9, r8).unwrap();
 
         // set Vf
-        self.x86.mov(cl, vf_addr).unwrap();
-        self.x86.setnc(byte_ptr(cl)).unwrap();
+        self.x86.mov(r10, vf_addr).unwrap();
+        self.x86.setnc(qword_ptr(r10)).unwrap();
 
-        self.x86.mov(byte_ptr(vx_addr), bl).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r9).unwrap();
 
         true
     }
@@ -238,39 +249,39 @@ impl JIT {
     pub fn shl(&mut self, vx: Vx, _: Vy) -> bool {
         debug!("-> SHL");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vf_addr = di + self.get_field_offset(Chip8Field::Reg(0xf));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
 
         // set Vf
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.shl(al, 1u32).unwrap();
-        self.x86.mov(bl, vf_addr).unwrap();
-        self.x86.setb(byte_ptr(bl)).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.shl(r8, 1u32).unwrap();
+        self.x86.mov(r9, vf_addr).unwrap();
+        self.x86.setb(qword_ptr(r9)).unwrap();
 
         // save shl
-        self.x86.mov(byte_ptr(vx_addr), al).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         true
     }
 
-    pub fn ld_i(&mut self, addr: Addr) -> bool {
+    pub fn ld_i(&mut self, addr: Nnn) -> bool {
         debug!("-> LD_I");
 
-        let i_addr = di + self.get_field_offset(Chip8Field::I);
+        let i_addr = rdi + self.get_field_offset(Chip8Field::I);
 
-        self.x86.mov(ax, u32::from(addr.0)).unwrap();
-        self.x86.mov(word_ptr(i_addr), ax).unwrap();
+        self.x86.mov(r8, u64::from(addr.0)).unwrap();
+        self.x86.mov(qword_ptr(i_addr), r8).unwrap();
 
         true
     }
 
-    pub fn ld_v0(&mut self, addr: Addr) -> bool {
+    pub fn ld_v0(&mut self, addr: Nnn) -> bool {
         debug!("-> LD_V0");
 
-        let i_addr = di + self.get_field_offset(Chip8Field::I);
+        let i_addr = rdi + self.get_field_offset(Chip8Field::I);
 
-        self.x86.mov(ax, u32::from(addr.0)).unwrap();
-        self.x86.mov(word_ptr(i_addr), ax).unwrap();
+        self.x86.mov(r8, u64::from(addr.0)).unwrap();
+        self.x86.mov(qword_ptr(i_addr), r8).unwrap();
 
         true
     }
@@ -278,11 +289,12 @@ impl JIT {
     pub fn rnd(&mut self, vx: Vx, kk: Byte) -> bool {
         debug!("-> RND");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
-        self.x86.rdrand(ax).unwrap();
-        self.x86.and(al, i32::from(kk.0)).unwrap();
-        self.x86.mov(byte_ptr(vx_addr), al).unwrap();
+        self.x86.mov(r8, u64::from(kk.0)).unwrap();
+        self.x86.rdrand(r9).unwrap();
+        self.x86.and(r9, r8).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r9).unwrap();
 
         true
     }
@@ -335,11 +347,11 @@ impl JIT {
     pub fn ld_x_dt(&mut self, vx: Vx) -> bool {
         debug!("-> LD_X_DT");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let delay_timer_addr = di + self.get_field_offset(Chip8Field::Delay);
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let delay_timer_addr = rdi + self.get_field_offset(Chip8Field::Delay);
 
-        self.x86.mov(al, byte_ptr(delay_timer_addr)).unwrap();
-        self.x86.mov(byte_ptr(vx_addr), al).unwrap();
+        self.x86.mov(r8, qword_ptr(delay_timer_addr)).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         true
     }
@@ -361,11 +373,11 @@ impl JIT {
     pub fn ld_dt_x(&mut self, vx: Vx) -> bool {
         debug!("-> LD_DT_X");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let delay_timer_addr = di + self.get_field_offset(Chip8Field::Delay);
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let delay_timer_addr = rdi + self.get_field_offset(Chip8Field::Delay);
 
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.mov(byte_ptr(delay_timer_addr), al).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(qword_ptr(delay_timer_addr), r8).unwrap();
 
         true
     }
@@ -373,11 +385,11 @@ impl JIT {
     pub fn ld_st(&mut self, vx: Vx) -> bool {
         debug!("-> LD_ST");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let sound_addr = di + self.get_field_offset(Chip8Field::Sound);
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let sound_addr = rdi + self.get_field_offset(Chip8Field::Sound);
 
-        self.x86.mov(al, byte_ptr(vx_addr)).unwrap();
-        self.x86.mov(byte_ptr(sound_addr), al).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(qword_ptr(sound_addr), r8).unwrap();
 
         true
     }
@@ -385,13 +397,13 @@ impl JIT {
     pub fn add_i(&mut self, vx: Vx) -> bool {
         debug!("-> ADD_I");
 
-        let i_addr = di + self.get_field_offset(Chip8Field::I);
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let i_addr = rdi + self.get_field_offset(Chip8Field::I);
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
-        self.x86.mov(ax, byte_ptr(vx_addr)).unwrap();
-        self.x86.mov(cx, word_ptr(i_addr)).unwrap();
-        self.x86.add(cx, ax).unwrap();
-        self.x86.mov(word_ptr(i_addr), cx).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(r9, qword_ptr(i_addr)).unwrap();
+        self.x86.add(r9, r8).unwrap();
+        self.x86.mov(qword_ptr(i_addr), r9).unwrap();
 
         true
     }
@@ -427,26 +439,26 @@ impl JIT {
     pub fn ld_i_x(&mut self, vx: Vx) -> bool {
         debug!("-> LD_I_X");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let v0_addr = di + self.get_field_offset(Chip8Field::Reg(0));
-        let i_addr = di + self.get_field_offset(Chip8Field::I);
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let v0_addr = rdi + self.get_field_offset(Chip8Field::Reg(0));
+        let i_addr = rdi + self.get_field_offset(Chip8Field::I);
 
-        self.x86.mov(al, v0_addr).unwrap(); // source ptr
-        self.x86.mov(bx, i_addr).unwrap(); // destination ptr
-        self.x86.mov(cl, vx_addr).unwrap(); // end-addr
+        self.x86.mov(r8, v0_addr).unwrap(); // source ptr
+        self.x86.mov(r9, i_addr).unwrap(); // destination ptr
+        self.x86.mov(r10, vx_addr).unwrap(); // end-addr
 
         // -- while loop --
         self.x86.anonymous_label().unwrap();
         // mov <reg>, <I>
-        self.x86.mov(ah, byte_ptr(al)).unwrap();
-        self.x86.mov(word_ptr(bx), ah).unwrap();
+        self.x86.mov(r11, qword_ptr(r8)).unwrap();
+        self.x86.mov(qword_ptr(r9), r11).unwrap();
 
         // increment ptr
-        self.x86.inc(al).unwrap();
-        self.x86.inc(bx).unwrap();
+        self.x86.inc(r8).unwrap();
+        self.x86.inc(r9).unwrap();
 
         // while <source ptr> <= end-addr
-        self.x86.cmp(al, cl).unwrap();
+        self.x86.cmp(r8, r10).unwrap();
         let jump_addr = self.x86.bwd().unwrap();
         self.x86.jle(jump_addr).unwrap();
 
@@ -456,26 +468,26 @@ impl JIT {
     pub fn ld_x_i(&mut self, vx: Vx) -> bool {
         debug!("-> LD_X_I");
 
-        let vx_addr = di + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let v0_addr = di + self.get_field_offset(Chip8Field::Reg(0));
-        let i_addr = di + self.get_field_offset(Chip8Field::I);
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let v0_addr = rdi + self.get_field_offset(Chip8Field::Reg(0));
+        let i_addr = rdi + self.get_field_offset(Chip8Field::I);
 
-        self.x86.mov(ax, i_addr).unwrap(); // source ptr
-        self.x86.mov(bl, v0_addr).unwrap(); // destination ptr
-        self.x86.mov(cl, vx_addr).unwrap(); // end-addr
+        self.x86.mov(r8, i_addr).unwrap(); // source ptr
+        self.x86.mov(r9, v0_addr).unwrap(); // destination ptr
+        self.x86.mov(r10, vx_addr).unwrap(); // end-addr
 
         // -- while loop --
         self.x86.anonymous_label().unwrap();
         // mov <reg>, <I>
-        self.x86.mov(ah, word_ptr(ax)).unwrap();
-        self.x86.mov(byte_ptr(bl), ah).unwrap();
+        self.x86.mov(r11, qword_ptr(r8)).unwrap();
+        self.x86.mov(qword_ptr(r9), r11).unwrap();
 
         // increment ptr
-        self.x86.inc(ax).unwrap();
-        self.x86.inc(bl).unwrap();
+        self.x86.inc(r8).unwrap();
+        self.x86.inc(r9).unwrap();
 
         // while <dest-ptr> <= <end-addr>
-        self.x86.cmp(bl, cl).unwrap();
+        self.x86.cmp(r9, r10).unwrap();
         let jump_addr = self.x86.bwd().unwrap();
         self.x86.jle(jump_addr).unwrap();
 

@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 use crate::cache::CompileBlock;
 use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES};
-use crate::ChipAddr;
+use crate::Addr;
 
 use iced_x86::code_asm::CodeAssembler;
 use memmap2::MmapMut;
@@ -32,7 +32,7 @@ pub struct Byte(pub u8);
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Addr(pub u16);
+pub struct Nnn(pub u16);
 
 pub fn compile(state: Rc<RefCell<Chip8State>>) -> CompileBlock {
     let mut jit = JIT::new(state);
@@ -48,7 +48,7 @@ pub trait Frame {
 
 #[repr(C)]
 pub struct JIT {
-    start_pc: u16,
+    start_pc: u64,
     pub chip_state: Rc<RefCell<Chip8State>>,
     pub x86: CodeAssembler,
 }
@@ -56,7 +56,7 @@ pub struct JIT {
 impl JIT {
     pub const QUAD_WORD: i32 = 8;
 
-    const BITNESS: u32 = 16;
+    const BITNESS: u32 = 64;
     const STEPS: [&'static dyn Frame; 1] = [&StackFrame as &dyn Frame];
 
     fn new(chip_state: Rc<RefCell<Chip8State>>) -> Self {
@@ -69,6 +69,8 @@ impl JIT {
     }
 
     fn compile(&mut self) -> CompileBlock {
+        self.prolog();
+
         self.recompile_chip8();
 
         self.epilog();
@@ -90,6 +92,12 @@ impl JIT {
         }
     }
 
+    fn prolog(&mut self) {
+        for step in Self::STEPS.into_iter() {
+            step.prolog(self);
+        }
+    }
+
     fn epilog(&mut self) {
         for step in Self::STEPS.into_iter().rev() {
             step.epilog(self);
@@ -97,20 +105,20 @@ impl JIT {
     }
 
     fn recompile_chip8(&mut self) {
-        let mut pc: ChipAddr = self.chip_state.borrow().pc;
+        let mut pc: Addr = self.chip_state.borrow().pc;
 
         while self.compile_next_instruction(pc) {
             debug!("Recompiling instruction next at {:#x}", pc);
-            pc += u16::from(INSTRUCTION_SIZE_BYTES);
+            pc += INSTRUCTION_SIZE_BYTES;
         }
     }
 
-    fn compile_next_instruction(&mut self, addr: ChipAddr) -> bool {
-        let start_addr = usize::from(addr);
-        let end_addr = start_addr + usize::from(INSTRUCTION_SIZE_BYTES);
+    fn compile_next_instruction(&mut self, addr: Addr) -> bool {
+        let start_addr = addr;
+        let end_addr = start_addr + INSTRUCTION_SIZE_BYTES;
         let mem = self.chip_state.borrow().mem;
 
-        let slice: [u8; 2] = mem[start_addr..end_addr]
+        let slice: [u8; 2] = mem[start_addr as usize..end_addr as usize]
             .try_into()
             .unwrap();
         let wordbyte = u16::from_be_bytes(slice);
@@ -130,7 +138,7 @@ impl JIT {
         let x: Vx = Vx(nibbles[1]);
         let y: Vy = Vy(nibbles[2]);
         let kk: Byte = Byte(u8::try_from(instruction & 0x00ff).unwrap());
-        let nnn: Addr = Addr(instruction & 0x0fff);
+        let nnn: Nnn = Nnn(instruction & 0x0fff);
         match (nibbles[0], nibbles[1], nibbles[2], nibbles[3]) {
             (0x0, 0x0, 0xe, 0x0) => self.cls(),
             (0x0, 0x0, 0xe, 0xe) => self.ret(),
@@ -175,18 +183,18 @@ impl JIT {
         let state_addr = &self.chip_state.borrow().mem as *const u8 as usize;
 
         let field_addr = match field {
-            Chip8Field::I => &self.chip_state.borrow().i as *const u16 as usize,
-            Chip8Field::PC => &self.chip_state.borrow().pc as *const u16 as usize,
-            Chip8Field::SP => &self.chip_state.borrow().sp as *const u8 as usize,
-            Chip8Field::Stack => &self.chip_state.borrow().stack as *const u16 as usize,
+            Chip8Field::I => &self.chip_state.borrow().i as *const u64 as usize,
+            Chip8Field::PC => &self.chip_state.borrow().pc as *const u64 as usize,
+            Chip8Field::SP => &self.chip_state.borrow().sp as *const u64 as usize,
+            Chip8Field::Stack => &self.chip_state.borrow().stack as *const u64 as usize,
             Chip8Field::Reg(index) => self
                 .chip_state
                 .borrow()
                 .regs
                 .get(usize::from(index))
-                .unwrap() as *const u8 as usize,
-            Chip8Field::Delay => &self.chip_state.borrow().delay as *const u8 as usize,
-            Chip8Field::Sound => &self.chip_state.borrow().sound as *const u8 as usize,
+                .unwrap() as *const u64 as usize,
+            Chip8Field::Delay => &self.chip_state.borrow().delay as *const u64 as usize,
+            Chip8Field::Sound => &self.chip_state.borrow().sound as *const u64 as usize,
         };
 
         field_addr - state_addr

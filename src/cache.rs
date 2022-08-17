@@ -4,14 +4,14 @@ use memmap2::Mmap;
 
 use crate::chip8::Chip8State;
 use crate::jit;
-use crate::ChipAddr;
+use crate::Addr;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Cache {
-    blocks: FnvHashMap<ChipAddr, CompileBlock>,
+    blocks: FnvHashMap<Addr, CompileBlock>,
 }
 
 impl Cache {
@@ -33,7 +33,7 @@ impl Cache {
 #[derive(Debug)]
 pub struct CompileBlock {
     pub code: Mmap,
-    pub start_addr: ChipAddr,
+    pub start_addr: Addr,
 }
 
 impl CompileBlock {

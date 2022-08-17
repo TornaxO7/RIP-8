@@ -1,3 +1,4 @@
+use log::debug;
 use minifb::{Key, Window, WindowOptions};
 
 use crate::cache::Cache;
@@ -6,7 +7,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Instant, Duration};
 
-pub const INSTRUCTION_SIZE_BYTES: u8 = 2;
+pub const INSTRUCTION_SIZE_BYTES: u64 = 2;
 
 pub const PIXEL_DRAW: u32 = u32::MAX;
 pub const PIXEL_CLEAN: u32 = 0;
@@ -53,16 +54,17 @@ pub enum Chip8Field {
     Sound,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct Chip8State {
     pub mem: [u8; Chip8::MEM_SIZE],
-    pub regs: [u8; Chip8::AMOUNT_REGISTERS],
-    pub i: u16,
-    pub delay: u8,
-    pub sound: u8,
-    pub pc: u16,
-    pub sp: u8,
-    pub stack: [u16; Chip8::MAX_AMOUNT_STACK],
+    pub regs: [u64; Chip8::AMOUNT_REGISTERS],
+    pub i: u64,
+    pub delay: u64,
+    pub sound: u64,
+    pub pc: u64,
+    pub sp: u64,
+    pub stack: [u64; Chip8::MAX_AMOUNT_STACK],
     pub window: Window,
     pub fb: Vec<bool>,
     pub keys: [bool; AMOUNT_KEYS],
@@ -90,6 +92,7 @@ impl Default for Chip8State {
     }
 }
 
+#[derive(Debug)]
 pub struct Chip8 {
     state: Rc<RefCell<Chip8State>>,
     cache: Cache,
@@ -98,7 +101,7 @@ pub struct Chip8 {
 impl Chip8 {
     pub const MEM_SIZE: usize = 4096;
     pub const AMOUNT_REGISTERS: usize = 16;
-    pub const START_ADDRESS: u16 = 0x200;
+    pub const START_ADDRESS: u64 = 0x200;
     pub const MAX_AMOUNT_STACK: usize = 16;
     pub const FREQUENCY: Duration = Duration::new(0, 16000000);
 
@@ -107,12 +110,12 @@ impl Chip8 {
             panic!("ROM is too big");
         }
 
-        let mut mem = [0; Chip8::MEM_SIZE];
+        let mut mem = [0u64; Chip8::MEM_SIZE];
         for (index, &value) in SPRITES.iter().enumerate() {
-            mem[index] = value;
+            mem[index] = u64::from(value);
         }
         for (index, &value) in binary_content.iter().enumerate() {
-            mem[usize::from(Self::START_ADDRESS) + index] = value;
+            mem[Self::START_ADDRESS as usize + index] = u64::from(value);
         }
 
         let window = Window::new(
@@ -145,16 +148,9 @@ impl Chip8 {
 
     pub fn run(&mut self) {
         while self.state.borrow().should_run {
-            let state_clone = self.state.clone();
-            let state_clone2 = self.state.clone();
-
-            assert!(state_clone.borrow().pc >= Self::START_ADDRESS);
-
-            let block = self.cache.get_or_compile(state_clone);
-
-            assert!(state_clone2.borrow().pc >= Self::START_ADDRESS);
-
-            block.execute(state_clone2);
+            debug!("{:#?}", self.state);
+            let block = self.cache.get_or_compile(self.state.clone());
+            block.execute(self.state.clone());
 
             self.tick();
         }
