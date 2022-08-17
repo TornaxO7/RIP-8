@@ -51,6 +51,7 @@ pub enum Chip8Field {
     Reg(u8),
     Delay,
     Sound,
+    Helper(u8),
 }
 
 #[derive(Debug)]
@@ -68,6 +69,7 @@ pub struct Chip8State {
     pub fb: Vec<bool>,
     pub keys: [bool; AMOUNT_KEYS],
     pub tick: Instant,
+    pub help_regs: [u64; Chip8::AMOUNT_REGISTERS],
     should_run: bool,
 }
 
@@ -108,16 +110,17 @@ impl Chip8 {
         Self {
             state: Rc::new(RefCell::new(Chip8State {
                 mem,
-                regs: [0xff; Chip8::AMOUNT_REGISTERS],
+                regs: [0; Chip8::AMOUNT_REGISTERS],
                 i: 0,
                 delay: 0,
                 sound: 0,
                 pc: Self::START_ADDRESS,
-                sp: 0xff,
+                sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
                 should_run: true,
                 fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize].to_vec(),
                 keys: [false; AMOUNT_KEYS],
+                help_regs: [0; Self::AMOUNT_REGISTERS],
                 tick: Instant::now(),
                 window,
             })),

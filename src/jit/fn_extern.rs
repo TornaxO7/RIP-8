@@ -43,7 +43,6 @@ pub unsafe extern "C" fn drw(_state: *mut Chip8State, vx: u64, vy: u64, nibble: 
     let _nibble = u8::try_from(nibble & 0xff).unwrap();
 
     // read "n" bytes
-    todo!();
 }
 
 pub unsafe extern "C" fn skp(state: *mut Chip8State, vx: u64) {

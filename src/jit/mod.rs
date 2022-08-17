@@ -28,6 +28,10 @@ pub struct Vy(pub u8);
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Helper(pub u8);
+
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Byte(pub u8);
 
 #[repr(C)]
@@ -137,7 +141,7 @@ impl JIT {
 
         let x: Vx = Vx(nibbles[1]);
         let y: Vy = Vy(nibbles[2]);
-        let kk: Byte = Byte(u8::try_from(instruction & 0x00ff).unwrap());
+        let kk: Helper = Helper(u8::try_from(instruction & 0x00ff).unwrap());
         let nnn: Nnn = Nnn(instruction & 0x0fff);
         match (nibbles[0], nibbles[1], nibbles[2], nibbles[3]) {
             (0x0, 0x0, 0xe, 0x0) => self.cls(),
@@ -149,12 +153,12 @@ impl JIT {
             (0x4, _, _, _) => self.sne(x, kk),
             (0x5, _, _, _) => self.se(x, y),
             (0x6, _, _, _) => self.ld(x, kk),
-            (0x7, _, _, _) => self.add(x, kk),
+            (0x7, _, _, _) => self.add_kk(x, kk),
             (0x8, _, _, 0) => self.ld(x, y),
             (0x8, _, _, 1) => self.or(x, y),
             (0x8, _, _, 2) => self.and(x, y),
             (0x8, _, _, 3) => self.xor(x, y),
-            (0x8, _, _, 4) => self.add(x, y),
+            (0x8, _, _, 4) => self.add_y(x, y),
             (0x8, _, _, 5) => self.sub(x, y),
             (0x8, _, _, 6) => self.shr(x, y),
             (0x8, _, _, 7) => self.subn(x, y),
@@ -162,8 +166,8 @@ impl JIT {
             (0x9, _, _, 0) => self.sne(x, y),
             (0xa, _, _, _) => self.ld_i(nnn),
             (0xb, _, _, _) => self.ld_v0(nnn),
-            (0xc, _, _, _) => self.rnd(x, kk),
-            (0xd, _, _, nibble) => self.drw(x, y, nibble),
+            (0xc, _, _, _) => self.rnd(x, Byte(kk.0)),
+            (0xd, _, _, nibble) => self.drw(x, y, nibble as u64),
             (0xe, _, 0x9, 0xe) => self.skp(x),
             (0xe, _, 0xa, 0x1) => self.sknp(x),
             (0xf, _, 0x0, 0x7) => self.ld_x_dt(x),
@@ -195,6 +199,12 @@ impl JIT {
                 .unwrap() as *const u64 as Addr,
             Chip8Field::Delay => &self.chip_state.borrow().delay as *const u64 as Addr,
             Chip8Field::Sound => &self.chip_state.borrow().sound as *const u64 as Addr,
+            Chip8Field::Helper(index) => self
+                .chip_state
+                .borrow()
+                .regs
+                .get(usize::from(index))
+                .unwrap() as * const u64 as Addr,
         };
 
         field_addr - state_addr

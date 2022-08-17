@@ -11,7 +11,3 @@ pub trait ArgSne<T> {
 pub trait ArgLd<T> {
     fn ld(&mut self, vx: Vx, arg2: T) -> bool;
 }
-
-pub trait ArgAdd<T> {
-    fn add(&mut self, vx: Vx, arg2: T) -> bool;
-}
