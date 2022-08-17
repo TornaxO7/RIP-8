@@ -1,4 +1,3 @@
-use log::debug;
 use minifb::{Key, Window, WindowOptions};
 
 use crate::cache::Cache;

@@ -307,13 +307,9 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.mov(r8, u64::from(vx.0)).unwrap();
-        self.x86.mov(r9, u64::from(vy.0)).unwrap();
-        self.x86.mov(r10, u64::from(nibble)).unwrap();
-
-        self.x86.push(r8).unwrap();
-        self.x86.push(r9).unwrap();
-        self.x86.push(r10).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
+        self.x86.mov(rdx, u64::from(vy.0)).unwrap();
+        self.x86.mov(rcx, u64::from(nibble)).unwrap();
 
         let drw_addr = fn_extern::drw
             as unsafe extern "C" fn(state: *mut Chip8State, vx: u64, vy: u64, nibble: u64) -> ();
@@ -328,9 +324,8 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
-        self.x86.push(r8).unwrap();
         let skp_addr =
             fn_extern::skp as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
         self.x86.call(skp_addr as u64).unwrap();
@@ -344,9 +339,8 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.mov(r8, u64::from(vx.0)).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
-        self.x86.push(r8).unwrap();
         let sknp_addr =
             fn_extern::sknp as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
         self.x86.call(sknp_addr as u64).unwrap();
@@ -373,8 +367,7 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.mov(r8, u64::from(vx.0)).unwrap();
-        self.x86.push(r8).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
         let ld_k_addr =
             fn_extern::ld_k as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
@@ -427,8 +420,7 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.mov(r8, u64::from(vx.0)).unwrap();
-        self.x86.push(r8).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
         let ld_f_addr =
             fn_extern::ld_f as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
@@ -443,8 +435,7 @@ impl JIT {
 
         self.function_call_prolog();
 
-        self.x86.mov(r8, u64::from(vx.0)).unwrap();
-        self.x86.push(r8).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
         let ld_b_addr =
             fn_extern::ld_b as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
