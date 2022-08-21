@@ -37,12 +37,14 @@ pub unsafe extern "C" fn cls(state: *mut Chip8State) {
         .unwrap();
 }
 
-pub unsafe extern "C" fn drw(_state: *mut Chip8State, vx: u64, vy: u64, nibble: u64) {
+pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u64) {
     let _vx = u8::try_from(vx & 0xff).unwrap();
     let _vy = u8::try_from(vy & 0xff).unwrap();
     let _nibble = u8::try_from(nibble & 0xff).unwrap();
 
-    // read "n" bytes
+    let state = &mut &state;
+    todo!()
+
 }
 
 pub unsafe extern "C" fn skp(state: *mut Chip8State, vx: u64) {

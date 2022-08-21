@@ -51,7 +51,6 @@ pub enum Chip8Field {
     Reg(u8),
     Delay,
     Sound,
-    Helper(u8),
 }
 
 #[derive(Debug)]

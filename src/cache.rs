@@ -38,6 +38,9 @@ pub struct CompileBlock {
 
 impl CompileBlock {
     pub fn execute(&self, state: Rc<RefCell<Chip8State>>) {
+        {
+            debug!("Executing at address: {:#x}", state.borrow().pc);
+        }
         let state = (&mut *state.borrow_mut()) as *mut Chip8State;
 
         let fnptr: unsafe extern "C" fn(state: *mut Chip8State) =

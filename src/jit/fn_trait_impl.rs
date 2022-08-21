@@ -2,16 +2,17 @@ use crate::chip8::{Chip8Field, INSTRUCTION_SIZE_BYTES};
 
 use super::{
     fn_traits::{ArgLd, ArgSe, ArgSne},
-    Vx, Vy, JIT, Helper,
+    Vx, Vy, JIT, Byte,
 };
 
 use iced_x86::code_asm::*;
+use log::debug;
 
-impl ArgSe<Helper> for JIT {
-    fn se(&mut self, vx: Vx, arg2: Helper) -> bool {
+impl ArgSe<Byte> for JIT {
+    fn se(&mut self, vx: Vx, arg2: Byte) -> bool {
+        debug!("--> SE {:?}, {:#x}", vx, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
-        let helper_addr = rdi + self.get_field_offset(Chip8Field::Helper(arg2.0));
 
         self.x86.mov(r8, qword_ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
@@ -20,7 +21,7 @@ impl ArgSe<Helper> for JIT {
         self.x86.add(r9, r11).unwrap();
 
         // cmp vx, kk
-        self.x86.mov(r11, qword_ptr(helper_addr)).unwrap();
+        self.x86.mov(r11, u64::from(arg2.0)).unwrap();
         self.x86.mov(r10, qword_ptr(vx_addr)).unwrap();
         self.x86.cmp(r10, r11).unwrap();
 
@@ -35,6 +36,7 @@ impl ArgSe<Helper> for JIT {
 
 impl ArgSe<Vy> for JIT {
     fn se(&mut self, vx: Vx, arg2: Vy) -> bool {
+        debug!("--> SE {:?}, {:?}", vx, arg2);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
@@ -61,11 +63,11 @@ impl ArgSe<Vy> for JIT {
     }
 }
 
-impl ArgSne<Helper> for JIT {
-    fn sne(&mut self, vx: Vx, arg2: Helper) -> bool {
+impl ArgSne<Byte> for JIT {
+    fn sne(&mut self, vx: Vx, arg2: Byte) -> bool {
+        debug!("--> SNE {:?}, {:#x}", vx, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
-        let helper_addr = rdi + self.get_field_offset(Chip8Field::Helper(arg2.0));
 
         self.x86.mov(r8, qword_ptr(pc_addr)).unwrap();
         // prepare `pc + 2`
@@ -74,7 +76,7 @@ impl ArgSne<Helper> for JIT {
         self.x86.add(r9, r11).unwrap();
 
         // cmp vx, kk
-        self.x86.mov(r11, qword_ptr(helper_addr)).unwrap();
+        self.x86.mov(r11, u64::from(arg2.0)).unwrap();
         self.x86.mov(r10, qword_ptr(vx_addr)).unwrap();
         self.x86.cmp(r10, r11).unwrap();
 
@@ -90,6 +92,7 @@ impl ArgSne<Helper> for JIT {
 impl ArgSne<Vy> for JIT {
     // IDEA: r8most the same as `se` maybe putting the same lines together.unwrap()
     fn sne(&mut self, vx: Vx, arg2: Vy) -> bool {
+        debug!("--> SNE {:?}, {:#x}", vx, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
@@ -117,12 +120,12 @@ impl ArgSne<Vy> for JIT {
     }
 }
 
-impl ArgLd<Helper> for JIT {
-    fn ld(&mut self, vx: Vx, arg2: Helper) -> bool {
+impl ArgLd<Byte> for JIT {
+    fn ld(&mut self, vx: Vx, arg2: Byte) -> bool {
+        debug!("--> LD_Vx_kk {:?}, {:#x}", vx, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let helper_addr = rdi + self.get_field_offset(Chip8Field::Helper(arg2.0));
 
-        self.x86.mov(r8, qword_ptr(helper_addr)).unwrap();
+        self.x86.mov(r8, u64::from(arg2.0)).unwrap();
         self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         true
@@ -131,6 +134,7 @@ impl ArgLd<Helper> for JIT {
 
 impl ArgLd<Vy> for JIT {
     fn ld(&mut self, vx: Vx, arg2: Vy) -> bool {
+        debug!("--> LD {:?}, {:#x}", vx, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
 

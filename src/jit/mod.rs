@@ -12,7 +12,7 @@ use std::convert::From;
 use std::rc::Rc;
 
 use crate::cache::CompileBlock;
-use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES};
+use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES, SPRITES};
 use crate::Addr;
 
 use iced_x86::code_asm::CodeAssembler;
@@ -25,10 +25,6 @@ pub struct Vx(pub u8);
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Vy(pub u8);
-
-#[repr(C)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Helper(pub u8);
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -141,7 +137,7 @@ impl JIT {
 
         let x: Vx = Vx(nibbles[1]);
         let y: Vy = Vy(nibbles[2]);
-        let kk: Helper = Helper(u8::try_from(instruction & 0x00ff).unwrap());
+        let kk: Byte = Byte(u8::try_from(instruction & 0x00ff).unwrap());
         let nnn: Nnn = Nnn(instruction & 0x0fff);
         match (nibbles[0], nibbles[1], nibbles[2], nibbles[3]) {
             (0x0, 0x0, 0xe, 0x0) => self.cls(),
@@ -199,12 +195,6 @@ impl JIT {
                 .unwrap() as *const u64 as Addr,
             Chip8Field::Delay => &self.chip_state.borrow().delay as *const u64 as Addr,
             Chip8Field::Sound => &self.chip_state.borrow().sound as *const u64 as Addr,
-            Chip8Field::Helper(index) => self
-                .chip_state
-                .borrow()
-                .regs
-                .get(usize::from(index))
-                .unwrap() as * const u64 as Addr,
         };
 
         field_addr - state_addr
