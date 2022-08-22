@@ -1,7 +1,8 @@
+use bit_iter::BitIter;
 use minifb::Key;
 
 use crate::chip8::{
-    Chip8State, WINDOW_HEIGHTusize, WINDOW_WIDTHusize, FACTOR, INSTRUCTION_SIZE_BYTES, PIXEL_CLEAN,
+    Chip8State, WINDOW_HEIGHTusize, WINDOW_WIDTHusize, FACTOR, INSTRUCTION_SIZE_BYTES, PIXEL_CLEAN, WINDOW_WIDTHu16,
 };
 
 fn key_value(key: Key) -> u64 {
@@ -38,13 +39,31 @@ pub unsafe extern "C" fn cls(state: *mut Chip8State) {
 }
 
 pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u64) {
-    let _vx = u8::try_from(vx & 0xff).unwrap();
-    let _vy = u8::try_from(vy & 0xff).unwrap();
-    let _nibble = u8::try_from(nibble & 0xff).unwrap();
+    let state = &mut *state;
+    let vx_value = state.regs[vx as usize];
+    let vy_value = state.regs[vy as usize];
+    state.regs[0xf] = 0;
 
-    let state = &mut &state;
-    todo!()
+    let mut x_coord = vx_value;
+    let mut y_coord = vy_value;
 
+    for byte_index in state.i..state.i + nibble {
+        let byte = state.mem[byte_index as usize];
+
+        for bit in BitIter::from(byte) {
+            let addr: usize = (x_coord + y_coord * u64::from(WINDOW_WIDTHu16)) as usize;
+            let prev_value = state.fb[addr];
+
+            state.fb[addr] ^= bit_to_bool(bit);
+
+            if state.fb[addr] != prev_value {
+                state.regs[0xf] = 1;
+            }
+
+            x_coord += 1;
+        }
+        y_coord += 1;
+    }
 }
 
 pub unsafe extern "C" fn skp(state: *mut Chip8State, vx: u64) {
@@ -96,4 +115,8 @@ pub unsafe extern "C" fn ld_b(state: *mut Chip8State, vx: u64) {
     state.mem[start_index] = u8::try_from(vx / 100).unwrap();
     state.mem[start_index + 1] = u8::try_from((vx % 100) / 10).unwrap();
     state.mem[start_index + 1] = u8::try_from(vx % 10).unwrap();
+}
+
+fn bit_to_bool(bit: usize) -> bool {
+    (bit & 1) == 1
 }

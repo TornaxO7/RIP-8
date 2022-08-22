@@ -84,6 +84,7 @@ impl Chip8 {
     pub const START_ADDRESS: u64 = 0x200;
     pub const MAX_AMOUNT_STACK: usize = 16;
     pub const FREQUENCY: Duration = Duration::new(0, 16000000);
+    pub const REG_MAX_VALUE: i32 = 0xff;
 
     pub fn new(binary_content: Vec<u8>) -> Self {
         if !binary_is_valid(&binary_content) {
@@ -117,7 +118,7 @@ impl Chip8 {
                 sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
                 should_run: true,
-                fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize].to_vec(),
+                fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize * FACTOR].to_vec(),
                 keys: [false; AMOUNT_KEYS],
                 help_regs: [0; Self::AMOUNT_REGISTERS],
                 tick: Instant::now(),
@@ -151,7 +152,7 @@ impl Chip8 {
             let (index, should_place) = entry;
 
             if should_place {
-                for fb_index in index * FACTOR..index * 2 * FACTOR {
+                for fb_index in index * FACTOR..(index + 1) * FACTOR {
                     buffer[fb_index] = PIXEL_DRAW;
                 }
             }

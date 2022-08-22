@@ -1,4 +1,4 @@
-use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES};
+use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES, Chip8};
 
 use super::{
     fn_extern,
@@ -11,6 +11,7 @@ use log::debug;
 
 impl JIT {
     fn function_call_prolog(&mut self) {
+        self.x86.push(rdi).unwrap();
         self.x86.push(rbp).unwrap();
         self.x86.mov(rbp, rsp).unwrap();
     }
@@ -18,6 +19,7 @@ impl JIT {
     fn function_call_epilog(&mut self) {
         self.x86.mov(rsp, rbp).unwrap();
         self.x86.pop(rbp).unwrap();
+        self.x86.pop(rdi).unwrap();
     }
 
     fn increment_pc(&mut self) {
@@ -48,11 +50,13 @@ impl JIT {
         debug!("-> RET");
 
         let sp_addr = rdi + self.get_field_offset(Chip8Field::SP);
-        let stack_addr = rdi + self.get_field_offset(Chip8Field::Stack);
-        let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
+        let stack_offset = self.get_field_offset(Chip8Field::Stack);
+        let pc_offset = self.get_field_offset(Chip8Field::PC);
 
-        self.x86.mov(r8, stack_addr).unwrap();
-        self.x86.mov(r9, pc_addr).unwrap();
+        self.x86.mov(r8, stack_offset).unwrap();
+        self.x86.add(r8, rdi).unwrap();
+        self.x86.mov(r9, pc_offset).unwrap();
+        self.x86.add(r9, rdi).unwrap();
 
         // calculate sp * INSTRUCTION_SIZE_BYTES
         self.x86.mov(r10, INSTRUCTION_SIZE_BYTES).unwrap();
@@ -66,7 +70,7 @@ impl JIT {
 
         // decrement sp
         self.x86.dec(qword_ptr(sp_addr)).unwrap();
-        true
+        false
     }
 
     pub fn sys(&mut self, _: Nnn) -> bool {
@@ -82,7 +86,7 @@ impl JIT {
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
         self.x86.mov(r8, addr.0 as u64).unwrap();
         self.x86.mov(qword_ptr(pc_addr), r8).unwrap();
-        true
+        false
     }
 
     pub fn call(&mut self, addr: Nnn) -> bool {
@@ -90,23 +94,19 @@ impl JIT {
 
         let sp_addr = rdi + self.get_field_offset(Chip8Field::SP);
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
-        let stack_addr = rdi + self.get_field_offset(Chip8Field::Stack);
+        let stack_offset = self.get_field_offset(Chip8Field::Stack);
+
+        self.x86.mov(rax, qword_ptr(sp_addr)).unwrap();
+        self.x86.mov(r9, qword_ptr(pc_addr)).unwrap();
+        self.x86.mov(r10, stack_offset).unwrap();
+        self.x86.add(r10, rdi).unwrap();
+        self.x86.mov(r11, INSTRUCTION_SIZE_BYTES).unwrap();
 
         // increment stack pointer
-        self.x86.mov(rax, qword_ptr(sp_addr)).unwrap();
         self.x86.inc(rax).unwrap();
         self.x86.mov(qword_ptr(sp_addr), rax).unwrap();
-
-        // put current pc on top of stack
-        self.x86.mov(r9, qword_ptr(pc_addr)).unwrap();
-
-        // calculate address of the stack, where to store pc
-        self.x86.mov(r10, stack_addr).unwrap();
-
-        // sp * INSTRUCTION_SIZE_BYTES
-        self.x86.mov(r11, INSTRUCTION_SIZE_BYTES).unwrap();
+        // rax =  sp * INSTRUCTION_SIZE_BYTES
         self.x86.mul(r11).unwrap();
-
         // stack_addr + (sp * INSTRUCTION_SIZE_BYTES)
         self.x86.add(r10, rax).unwrap();
 
@@ -116,7 +116,8 @@ impl JIT {
         // set pc to `addr`
         self.x86.mov(r8, u64::from(addr.0)).unwrap();
         self.x86.mov(qword_ptr(pc_addr), r8).unwrap();
-        true
+
+        false
     }
 
     pub fn se<T>(&mut self, vx: Vx, arg2: T) -> bool
@@ -149,11 +150,13 @@ impl JIT {
     pub fn add_kk(&mut self, vx: Vx, kk: Byte) -> bool {
         debug!("--> ADD_KK {:?}, {:#x}", vx, kk.0);
 
-        let vx_addr = self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
-        self.x86.mov(r8, vx_addr).unwrap();
-        self.x86.mov(r9, u64::from(kk.0)).unwrap();
-        self.x86.add(qword_ptr(r8), r9).unwrap();
+        self.x86.mov(r8, u64::from(kk.0)).unwrap();
+        self.x86.mov(r9, qword_ptr(vx_addr)).unwrap();
+        self.x86.add(r9, r8).unwrap();
+        self.x86.and(r9, Chip8::REG_MAX_VALUE).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r9).unwrap();
 
         self.increment_pc();
         true
@@ -162,20 +165,24 @@ impl JIT {
     pub fn add_y(&mut self, vx: Vx, vy: Vy) -> bool {
         debug!("--> ADD_Y {:?} {:?}", vx, vy);
 
-        let vx_addr = self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = self.get_field_offset(Chip8Field::Reg(vy.0));
-        let vf_addr = self.get_field_offset(Chip8Field::Reg(0xf));
+        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
+        let vf_offset = self.get_field_offset(Chip8Field::Reg(0xf));
 
         self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
         self.x86.mov(r9, qword_ptr(vy_addr)).unwrap();
-        self.x86.mov(r10, vf_addr).unwrap();
+        self.x86.mov(r10, vf_offset).unwrap();
+        self.x86.add(r10, rdi).unwrap();
 
         // add Vx, Vy
         self.x86.add(r8, r9).unwrap();
-        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         // set Vf
         self.x86.setc(qword_ptr(r10)).unwrap();
+
+        // mask r8
+        self.x86.and(r8, Chip8::REG_MAX_VALUE).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         self.increment_pc();
         true
@@ -231,7 +238,7 @@ impl JIT {
 
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
-        let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
+        let vf_offset = self.get_field_offset(Chip8Field::Reg(0xf));
 
         // sub
         self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
@@ -239,7 +246,8 @@ impl JIT {
         self.x86.sub(r8, r9).unwrap();
 
         // set Vf
-        self.x86.mov(r8, vf_addr).unwrap();
+        self.x86.mov(r8, vf_offset).unwrap();
+        self.x86.add(r8, rdi).unwrap();
         self.x86.setnc(qword_ptr(r8)).unwrap();
 
         self.increment_pc();
@@ -255,8 +263,7 @@ impl JIT {
         // set Vf
         self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
         self.x86.shr(r8, 1u32).unwrap();
-        self.x86.mov(r8, vf_addr).unwrap();
-        self.x86.setb(qword_ptr(r8)).unwrap();
+        self.x86.setb(qword_ptr(vf_addr)).unwrap();
 
         // save shr
         self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
@@ -270,7 +277,11 @@ impl JIT {
 
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
-        let vf_addr = rdi + self.get_field_offset(Chip8Field::Reg(0xf));
+        let vf_offset = self.get_field_offset(Chip8Field::Reg(0xf));
+
+        // store vf_address
+        self.x86.mov(r10, vf_offset).unwrap();
+        self.x86.add(r10, rdi).unwrap();
 
         // sub Vy, Vx
         self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
@@ -278,7 +289,6 @@ impl JIT {
         self.x86.sub(r9, r8).unwrap();
 
         // set Vf
-        self.x86.mov(r10, vf_addr).unwrap();
         self.x86.setnc(qword_ptr(r10)).unwrap();
 
         self.x86.mov(qword_ptr(vx_addr), r9).unwrap();
@@ -296,10 +306,10 @@ impl JIT {
         // set Vf
         self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
         self.x86.shl(r8, 1u32).unwrap();
-        self.x86.mov(r9, vf_addr).unwrap();
-        self.x86.setb(qword_ptr(r9)).unwrap();
+        self.x86.setb(qword_ptr(vf_addr)).unwrap();
 
-        // save shl
+        // mask and save
+        self.x86.and(r8, Chip8::REG_MAX_VALUE).unwrap();
         self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         self.increment_pc();
@@ -335,10 +345,10 @@ impl JIT {
 
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
-        self.x86.mov(r8, u64::from(kk.0)).unwrap();
+        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
         self.x86.rdrand(r9).unwrap();
-        self.x86.and(r9, r8).unwrap();
-        self.x86.mov(qword_ptr(vx_addr), r9).unwrap();
+        self.x86.and(r8, r9).unwrap();
+        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
 
         self.increment_pc();
         true
@@ -347,13 +357,10 @@ impl JIT {
     pub fn drw(&mut self, vx: Vx, vy: Vy, nibble: u64) -> bool {
         debug!("-> DRW {:?}, {:?}, {:#x}", vx, vy, nibble);
 
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-        let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(vy.0));
-
         self.function_call_prolog();
 
-        self.x86.mov(rsi, qword_ptr(vx_addr)).unwrap();
-        self.x86.mov(rdx, qword_ptr(vy_addr)).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
+        self.x86.mov(rdx, u64::from(vy.0)).unwrap();
         self.x86.mov(rcx, u64::from(nibble)).unwrap();
 
         let drw_addr = fn_extern::drw
@@ -369,11 +376,9 @@ impl JIT {
     pub fn skp(&mut self, vx: Vx) -> bool {
         debug!("-> SKP {:?}", vx);
 
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
-
         self.function_call_prolog();
 
-        self.x86.mov(rsi, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
         let skp_addr =
             fn_extern::skp as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
@@ -387,11 +392,10 @@ impl JIT {
 
     pub fn sknp(&mut self, vx: Vx) -> bool {
         debug!("-> SKNP {:?}", vx);
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
         self.function_call_prolog();
 
-        self.x86.mov(rsi, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
         let sknp_addr =
             fn_extern::sknp as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
@@ -418,11 +422,10 @@ impl JIT {
 
     pub fn ld_k(&mut self, vx: Vx) -> bool {
         debug!("-> LD_K {:?}", vx);
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
         self.function_call_prolog();
 
-        self.x86.mov(rsi, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(rsi, u64::from(vx.0)).unwrap();
 
         let ld_k_addr =
             fn_extern::ld_k as unsafe extern "C" fn(state: *mut Chip8State, vx: u64) -> ();
@@ -469,6 +472,7 @@ impl JIT {
         self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
         self.x86.mov(r9, qword_ptr(i_addr)).unwrap();
         self.x86.add(r9, r8).unwrap();
+        self.x86.and(r9, Chip8::REG_MAX_VALUE).unwrap();
         self.x86.mov(qword_ptr(i_addr), r9).unwrap();
 
         self.increment_pc();

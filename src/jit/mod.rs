@@ -12,7 +12,7 @@ use std::convert::From;
 use std::rc::Rc;
 
 use crate::cache::CompileBlock;
-use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES, SPRITES};
+use crate::chip8::{Chip8Field, Chip8State, INSTRUCTION_SIZE_BYTES};
 use crate::Addr;
 
 use iced_x86::code_asm::CodeAssembler;

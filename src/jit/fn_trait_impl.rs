@@ -92,7 +92,7 @@ impl ArgSne<Byte> for JIT {
 impl ArgSne<Vy> for JIT {
     // IDEA: r8most the same as `se` maybe putting the same lines together.unwrap()
     fn sne(&mut self, vx: Vx, arg2: Vy) -> bool {
-        debug!("--> SNE {:?}, {:#x}", vx, arg2.0);
+        debug!("--> SNE {:?}, {:?}", vx, arg2);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);

@@ -39,7 +39,8 @@ pub struct CompileBlock {
 impl CompileBlock {
     pub fn execute(&self, state: Rc<RefCell<Chip8State>>) {
         {
-            debug!("Executing at address: {:#x}", state.borrow().pc);
+            let pc = state.borrow().pc;
+            debug!("Executing at address: {:#x}", pc);
         }
         let state = (&mut *state.borrow_mut()) as *mut Chip8State;
 
