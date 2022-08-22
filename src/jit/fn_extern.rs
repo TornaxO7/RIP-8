@@ -1,21 +1,21 @@
 use bit_iter::BitIter;
-use minifb::Key;
+use simple::Key;
 
 use crate::chip8::{
-    Chip8State, WINDOW_HEIGHTusize, WINDOW_WIDTHusize, FACTOR, INSTRUCTION_SIZE_BYTES, PIXEL_CLEAN, WINDOW_WIDTHu16,
+    Chip8State, WINDOW_HEIGHTusize, WINDOW_WIDTHusize, FACTOR, INSTRUCTION_SIZE_BYTES, PIXEL_CLEAN, WINDOW_WIDTHu16, WINDOW_SIZE, KEY_LAYOUT,
 };
 
 fn key_value(key: Key) -> u64 {
     match key {
-        Key::Key1 => 0x1,
-        Key::Key2 => 0x2,
-        Key::Key3 => 0x3,
-        Key::Key4 => 0x4,
-        Key::Key5 => 0x5,
-        Key::Key6 => 0x6,
-        Key::Key7 => 0x7,
-        Key::Key8 => 0x8,
-        Key::Key9 => 0x9,
+        Key::Num1 => 0x1,
+        Key::Num2 => 0x2,
+        Key::Num3 => 0x3,
+        Key::Num4 => 0x4,
+        Key::Num5 => 0x5,
+        Key::Num6 => 0x6,
+        Key::Num7 => 0x7,
+        Key::Num8 => 0x8,
+        Key::Num9 => 0x9,
         Key::A => 0xA,
         Key::B => 0xB,
         Key::C => 0xC,
@@ -27,15 +27,8 @@ fn key_value(key: Key) -> u64 {
 
 pub unsafe extern "C" fn cls(state: *mut Chip8State) {
     let state = &mut *state;
-    let buffer = [PIXEL_CLEAN; WINDOW_WIDTHusize * WINDOW_HEIGHTusize * FACTOR];
-    state
-        .window
-        .update_with_buffer(
-            &buffer,
-            WINDOW_WIDTHusize * FACTOR,
-            WINDOW_HEIGHTusize * FACTOR,
-        )
-        .unwrap();
+    state.fb = [false; WINDOW_SIZE];
+    state.need_window_update = true;
 }
 
 pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u64) {
@@ -64,6 +57,8 @@ pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u
         }
         y_coord += 1;
     }
+
+    state.need_window_update = true;
 }
 
 pub unsafe extern "C" fn skp(state: *mut Chip8State, vx: u64) {
@@ -86,19 +81,17 @@ pub unsafe extern "C" fn sknp(state: *mut Chip8State, vx: u64) {
 
 pub unsafe extern "C" fn ld_k(state: *mut Chip8State, vx: u64) {
     let vx = u8::try_from(vx & 0xff).unwrap();
-    let mut found_key = false;
     let state = &mut *state;
     let vx = usize::try_from(vx).unwrap();
 
-    while !found_key {
-        state
-            .window
-            .get_keys_pressed(minifb::KeyRepeat::No)
-            .into_iter()
-            .for_each(|key: Key| {
+    let mut pressed_key = false;
+    while !pressed_key {
+        for &key in KEY_LAYOUT.iter() {
+            if state.window.is_key_down(key) {
                 state.regs[vx] = key_value(key);
-                found_key = true;
-            });
+                pressed_key = true;
+            }
+        }
     }
 }
 

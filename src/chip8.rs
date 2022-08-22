@@ -1,10 +1,10 @@
-use minifb::{Key, Window, WindowOptions};
+use simple::{Key, Rect, Window};
 
 use crate::cache::Cache;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 pub const INSTRUCTION_SIZE_BYTES: u64 = 2;
 
@@ -20,8 +20,29 @@ pub const WINDOW_WIDTHusize: usize = WINDOW_WIDTHu16 as usize;
 #[allow(non_upper_case_globals)]
 pub const WINDOW_HEIGHTusize: usize = WINDOW_HEIGHTu16 as usize;
 
-pub const FACTOR: usize = 10;
+pub const WINDOW_SIZE: usize = (WINDOW_WIDTHu16 * WINDOW_HEIGHTu16) as usize;
+
+pub const FACTOR: u16 = 10;
 pub const AMOUNT_KEYS: usize = 16;
+
+pub const KEY_LAYOUT: [Key; 16] = [
+    Key::Num1,
+    Key::Num2,
+    Key::Num3,
+    Key::Num4,
+    Key::Q,
+    Key::W,
+    Key::E,
+    Key::R,
+    Key::A,
+    Key::S,
+    Key::D,
+    Key::F,
+    Key::Z,
+    Key::X,
+    Key::C,
+    Key::V,
+];
 
 pub const SPRITES: [u8; 16 * 5] = [
     0xf0, 0x90, 0x90, 0x90, 0xf0, // 0
@@ -53,7 +74,6 @@ pub enum Chip8Field {
     Sound,
 }
 
-#[derive(Debug)]
 #[repr(C)]
 pub struct Chip8State {
     pub mem: [u8; Chip8::MEM_SIZE],
@@ -65,14 +85,14 @@ pub struct Chip8State {
     pub sp: u64,
     pub stack: [u64; Chip8::MAX_AMOUNT_STACK],
     pub window: Window,
-    pub fb: Vec<bool>,
+    pub need_window_update: bool,
+    pub fb: [bool; WINDOW_SIZE],
     pub keys: [bool; AMOUNT_KEYS],
     pub tick: Instant,
     pub help_regs: [u64; Chip8::AMOUNT_REGISTERS],
     should_run: bool,
 }
 
-#[derive(Debug)]
 pub struct Chip8 {
     state: Rc<RefCell<Chip8State>>,
     cache: Cache,
@@ -99,13 +119,7 @@ impl Chip8 {
             mem[Self::START_ADDRESS as usize + index] = value;
         }
 
-        let window = Window::new(
-            "RIP-8",
-            WINDOW_WIDTHusize * FACTOR,
-            WINDOW_HEIGHTusize * FACTOR,
-            WindowOptions::default(),
-        )
-        .unwrap();
+        let window = Window::new("RIP-8", WINDOW_WIDTHu16 * FACTOR, WINDOW_HEIGHTu16 * FACTOR);
 
         Self {
             state: Rc::new(RefCell::new(Chip8State {
@@ -118,11 +132,12 @@ impl Chip8 {
                 sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
                 should_run: true,
-                fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize * FACTOR].to_vec(),
+                fb: [false; WINDOW_SIZE],
                 keys: [false; AMOUNT_KEYS],
                 help_regs: [0; Self::AMOUNT_REGISTERS],
                 tick: Instant::now(),
                 window,
+                need_window_update: true,
             })),
             cache: Cache::new(),
         }
@@ -138,7 +153,9 @@ impl Chip8 {
     }
 
     pub fn tick(&mut self) {
-        self.refresh_window();
+        if self.state.borrow().need_window_update {
+            self.refresh_window();
+        }
         self.refresh_keys();
 
         std::thread::sleep(Self::FREQUENCY.saturating_sub(self.state.borrow().tick.elapsed()));
@@ -146,64 +163,38 @@ impl Chip8 {
 
     pub fn refresh_window(&mut self) {
         let mut state = self.state.borrow_mut();
+        state.window.clear();
 
-        let mut buffer: Vec<u32> = [0; WINDOW_HEIGHTusize * WINDOW_WIDTHusize * FACTOR].to_vec();
-        for entry in state.fb.clone().into_iter().enumerate() {
-            let (index, should_place) = entry;
-
-            if should_place {
-                for fb_index in index * FACTOR..(index + 1) * FACTOR {
-                    buffer[fb_index] = PIXEL_DRAW;
-                }
+        let buffer = state.fb.clone();
+        for (index, &pixel) in buffer.iter().enumerate() {
+            if pixel {
+                let index = index as u16;
+                let height = index / WINDOW_WIDTHu16 * FACTOR;
+                let width = index % WINDOW_WIDTHu16 * FACTOR;
+                let rect = Rect::new(width as i32, height as i32, FACTOR as u32, FACTOR as u32);
+                state.window.fill_rect(rect);
             }
-        }
-
-        state.window.update_with_buffer(
-            &buffer,
-            WINDOW_WIDTHusize * FACTOR,
-            WINDOW_HEIGHTusize,
-        ).unwrap();
-
-        if let Some(key) = state.window.get_keys_pressed(minifb::KeyRepeat::No).into_iter().next() {
-            state.should_run = key == Key::Q;
         }
     }
 
     pub fn refresh_keys(&mut self) {
         let mut state = self.state.borrow_mut();
+        for (index, &key) in KEY_LAYOUT.iter().enumerate() {
+            if state.window.is_key_down(key) {
+                state.keys[index] = true;
+            } else {
+                state.keys[index] = false;
+            }
+        }
 
-        state.window.get_keys_pressed(minifb::KeyRepeat::No).into_iter().for_each(|key: Key| {
-            state.keys[key_value(key) as usize] = true;
-        });
-        state.window.get_keys_released().into_iter().for_each(|key: Key| {
-            state.keys[key_value(key) as usize] = false;
-        });
-
-        state.should_run = !state.keys[key_value(Key::A) as usize];
+        for _ in 0..10 {
+            if state.window.is_key_down(KEY_LAYOUT[4]) {
+                state.should_run = false;
+            }
+        }
     }
 }
 
 fn binary_is_valid(binary: &Vec<u8>) -> bool {
     binary.len() <= Chip8::MEM_SIZE
 }
-
-fn key_value(key: Key) -> u8 {
-    match key {
-        Key::Key1 => 0x1,
-        Key::Key2 => 0x2,
-        Key::Key3 => 0x3,
-        Key::Key4 => 0x4,
-        Key::Key5 => 0x5,
-        Key::Key6 => 0x6,
-        Key::Key7 => 0x7,
-        Key::Key8 => 0x8,
-        Key::Key9 => 0x9,
-        Key::A => 0xA,
-        Key::B => 0xB,
-        Key::C => 0xC,
-        Key::E => 0xE,
-        Key::F => 0xF,
-        _ => unreachable!("Unknown key: {:?}", key),
-    }
-}
-
