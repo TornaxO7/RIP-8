@@ -10,7 +10,7 @@ use log::debug;
 
 impl ArgSe<Byte> for JIT {
     fn se(&mut self, vx: Vx, arg2: Byte) -> bool {
-        debug!("--> SE {:?}, {:#x}", vx, arg2.0);
+        debug!("--> SE V{:X}, {:#X}", vx.0, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
@@ -36,7 +36,7 @@ impl ArgSe<Byte> for JIT {
 
 impl ArgSe<Vy> for JIT {
     fn se(&mut self, vx: Vx, arg2: Vy) -> bool {
-        debug!("--> SE {:?}, {:?}", vx, arg2);
+        debug!("--> SE V{:X}, V{:X}", vx.0, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
@@ -65,7 +65,7 @@ impl ArgSe<Vy> for JIT {
 
 impl ArgSne<Byte> for JIT {
     fn sne(&mut self, vx: Vx, arg2: Byte) -> bool {
-        debug!("--> SNE {:?}, {:#x}", vx, arg2.0);
+        debug!("--> SNE V{:X}, {:#X}", vx.0, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
 
@@ -92,7 +92,7 @@ impl ArgSne<Byte> for JIT {
 impl ArgSne<Vy> for JIT {
     // IDEA: r8most the same as `se` maybe putting the same lines together.unwrap()
     fn sne(&mut self, vx: Vx, arg2: Vy) -> bool {
-        debug!("--> SNE {:?}, {:?}", vx, arg2);
+        debug!("--> SNE V{:X}, V{:X}", vx.0, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
         let pc_addr = rdi + self.get_field_offset(Chip8Field::PC);
@@ -122,7 +122,7 @@ impl ArgSne<Vy> for JIT {
 
 impl ArgLd<Byte> for JIT {
     fn ld(&mut self, vx: Vx, arg2: Byte) -> bool {
-        debug!("--> LD_Vx_kk {:?}, {:#x}", vx, arg2.0);
+        debug!("--> LD V{:X}, {:#X}", vx.0, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
         self.x86.mov(r8, u64::from(arg2.0)).unwrap();
@@ -134,7 +134,7 @@ impl ArgLd<Byte> for JIT {
 
 impl ArgLd<Vy> for JIT {
     fn ld(&mut self, vx: Vx, arg2: Vy) -> bool {
-        debug!("--> LD {:?}, {:#x}", vx, arg2.0);
+        debug!("--> LD V{:X}, {:#x}", vx.0, arg2.0);
         let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
         let vy_addr = rdi + self.get_field_offset(Chip8Field::Reg(arg2.0));
 

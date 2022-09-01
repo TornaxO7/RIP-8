@@ -113,10 +113,12 @@ pub unsafe extern "C" fn ld_f(state: *mut Chip8State, vx: u64) {
 }
 
 pub unsafe extern "C" fn ld_b(state: *mut Chip8State, vx: u64) {
-    let vx = u8::try_from(vx & 0xff).unwrap();
     let state = &mut *state;
+
+    let vx_value = state.regs[vx as usize];
     let start_index = usize::try_from(state.i).unwrap();
-    state.mem[start_index] = u8::try_from(vx / 100).unwrap();
-    state.mem[start_index + 1] = u8::try_from((vx % 100) / 10).unwrap();
-    state.mem[start_index + 1] = u8::try_from(vx % 10).unwrap();
+
+    state.mem[start_index] = u8::try_from(vx_value / 100).unwrap();
+    state.mem[start_index + 1] = u8::try_from((vx_value % 100) / 10).unwrap();
+    state.mem[start_index + 2] = u8::try_from(vx_value % 10).unwrap();
 }

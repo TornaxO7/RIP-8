@@ -161,7 +161,7 @@ impl JIT {
             (0x8, _, _, 0xe) => self.shl(x, y),
             (0x9, _, _, 0) => self.sne(x, y),
             (0xa, _, _, _) => self.ld_i(nnn),
-            (0xb, _, _, _) => self.ld_v0(nnn),
+            (0xb, _, _, _) => self.jp_v0(nnn),
             (0xc, _, _, _) => self.rnd(x, Byte(kk.0)),
             (0xd, _, _, nibble) => self.drw(x, y, nibble as u64),
             (0xe, _, 0x9, 0xe) => self.skp(x),
