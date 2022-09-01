@@ -61,7 +61,7 @@ pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u
             let addr: usize = (x + y * u64::from(WINDOW_WIDTHu16)) as usize;
             let prev_value = state.fb[addr];
 
-            state.fb[addr] ^= bit_to_bool(bit);
+            state.fb[addr] = !state.fb[addr];
 
             if state.fb[addr] != prev_value {
                 state.regs[0xf] = 1;
@@ -119,8 +119,4 @@ pub unsafe extern "C" fn ld_b(state: *mut Chip8State, vx: u64) {
     state.mem[start_index] = u8::try_from(vx / 100).unwrap();
     state.mem[start_index + 1] = u8::try_from((vx % 100) / 10).unwrap();
     state.mem[start_index + 1] = u8::try_from(vx % 10).unwrap();
-}
-
-fn bit_to_bool(bit: usize) -> bool {
-    (bit & 1) == 1
 }
