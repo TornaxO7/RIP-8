@@ -182,17 +182,23 @@ impl Chip8 {
             .get_keys_pressed(minifb::KeyRepeat::No)
             .into_iter()
             .for_each(|key: Key| {
-                state.keys[key_value(key) as usize] = true;
+                if let Some(index) = key_value(key) {
+                    state.keys[index as usize] = true;
+                }
             });
         state
             .window
             .get_keys_released()
             .into_iter()
             .for_each(|key: Key| {
-                state.keys[key_value(key) as usize] = false;
+                if let Some(index) = key_value(key) {
+                    state.keys[index as usize] = false;
+                }
             });
 
-        state.should_run = !state.keys[key_value(Key::A) as usize];
+        if let Some(index) = key_value(Key::A) {
+            state.should_run = !state.keys[index as usize];
+        }
     }
 }
 
@@ -200,22 +206,22 @@ fn binary_is_valid(binary: &Vec<u8>) -> bool {
     binary.len() <= Chip8::MEM_SIZE
 }
 
-fn key_value(key: Key) -> u8 {
+fn key_value(key: Key) -> Option<u8> {
     match key {
-        Key::Key1 => 0x1,
-        Key::Key2 => 0x2,
-        Key::Key3 => 0x3,
-        Key::Key4 => 0x4,
-        Key::Key5 => 0x5,
-        Key::Key6 => 0x6,
-        Key::Key7 => 0x7,
-        Key::Key8 => 0x8,
-        Key::Key9 => 0x9,
-        Key::A => 0xA,
-        Key::B => 0xB,
-        Key::C => 0xC,
-        Key::E => 0xE,
-        Key::F => 0xF,
-        _ => unreachable!("Unknown key: {:?}", key),
+        Key::Key1 => Some(0x1),
+        Key::Key2 => Some(0x2),
+        Key::Key3 => Some(0x3),
+        Key::Key4 => Some(0x4),
+        Key::Key5 => Some(0x5),
+        Key::Key6 => Some(0x6),
+        Key::Key7 => Some(0x7),
+        Key::Key8 => Some(0x8),
+        Key::Key9 => Some(0x9),
+        Key::A => Some(0xA),
+        Key::B => Some(0xB),
+        Key::C => Some(0xC),
+        Key::E => Some(0xE),
+        Key::F => Some(0xF),
+        _ => None,
     }
 }

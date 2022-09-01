@@ -55,7 +55,7 @@ pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u
             y_start + offset - 1
         };
 
-        for bit in BitIter::from(byte) {
+        for bit in BitIter::from(byte.reverse_bits()) {
             let x = x_start + bit as u64;
 
             let addr: usize = (x + y * u64::from(WINDOW_WIDTHu16)) as usize;
