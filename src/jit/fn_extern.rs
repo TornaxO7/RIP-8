@@ -2,7 +2,7 @@ use bit_iter::BitIter;
 use minifb::Key;
 
 use crate::chip8::{
-    Chip8State, WINDOW_HEIGHTusize, WINDOW_WIDTHusize, FACTOR, INSTRUCTION_SIZE_BYTES, PIXEL_CLEAN, WINDOW_WIDTHu16,
+    Chip8State, WINDOW_HEIGHTusize, WINDOW_WIDTHusize, INSTRUCTION_SIZE_BYTES, PIXEL_CLEAN, WINDOW_WIDTHu16, WINDOW_SIZEusize,
 };
 
 fn key_value(key: Key) -> u64 {
@@ -27,13 +27,13 @@ fn key_value(key: Key) -> u64 {
 
 pub unsafe extern "C" fn cls(state: *mut Chip8State) {
     let state = &mut *state;
-    let buffer = [PIXEL_CLEAN; WINDOW_WIDTHusize * WINDOW_HEIGHTusize * FACTOR];
+    let buffer = [PIXEL_CLEAN; WINDOW_SIZEusize];
     state
         .window
         .update_with_buffer(
             &buffer,
-            WINDOW_WIDTHusize * FACTOR,
-            WINDOW_HEIGHTusize * FACTOR,
+            WINDOW_WIDTHusize,
+            WINDOW_HEIGHTusize,
         )
         .unwrap();
 }
@@ -44,25 +44,29 @@ pub unsafe extern "C" fn drw(state: *mut Chip8State, vx: u64, vy: u64, nibble: u
     let vy_value = state.regs[vy as usize];
     state.regs[0xf] = 0;
 
-    let mut x_coord = vx_value;
-    let mut y_coord = vy_value;
+    let x_start = vx_value;
+    let y_start = vy_value;
 
-    for byte_index in state.i..state.i + nibble {
-        let byte = state.mem[byte_index as usize];
+    for offset in 0..nibble {
+        let byte = state.mem[(state.i + offset) as usize];
+        let y: u64 = if y_start + offset == 0 {
+            0
+        } else {
+            y_start + offset - 1
+        };
 
         for bit in BitIter::from(byte) {
-            let addr: usize = (x_coord + y_coord * u64::from(WINDOW_WIDTHu16)) as usize;
+            let x = x_start + bit as u64;
+
+            let addr: usize = (x + y * u64::from(WINDOW_WIDTHu16)) as usize;
             let prev_value = state.fb[addr];
 
-            state.fb[addr] ^= bit_to_bool(bit);
+            state.fb[addr] = !state.fb[addr];
 
             if state.fb[addr] != prev_value {
                 state.regs[0xf] = 1;
             }
-
-            x_coord += 1;
         }
-        y_coord += 1;
     }
 }
 
@@ -115,8 +119,4 @@ pub unsafe extern "C" fn ld_b(state: *mut Chip8State, vx: u64) {
     state.mem[start_index] = u8::try_from(vx / 100).unwrap();
     state.mem[start_index + 1] = u8::try_from((vx % 100) / 10).unwrap();
     state.mem[start_index + 1] = u8::try_from(vx % 10).unwrap();
-}
-
-fn bit_to_bool(bit: usize) -> bool {
-    (bit & 1) == 1
 }

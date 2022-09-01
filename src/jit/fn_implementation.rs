@@ -343,12 +343,12 @@ impl JIT {
     pub fn rnd(&mut self, vx: Vx, kk: Byte) -> bool {
         debug!("-> RND {:?}, {:#x}", vx, kk.0);
 
-        let vx_addr = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
+        let vx_value = rdi + self.get_field_offset(Chip8Field::Reg(vx.0));
 
-        self.x86.mov(r8, qword_ptr(vx_addr)).unwrap();
+        self.x86.mov(r8, kk.0 as u64).unwrap();
         self.x86.rdrand(r9).unwrap();
         self.x86.and(r8, r9).unwrap();
-        self.x86.mov(qword_ptr(vx_addr), r8).unwrap();
+        self.x86.mov(qword_ptr(vx_value), r8).unwrap();
 
         self.increment_pc();
         true
