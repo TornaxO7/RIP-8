@@ -4,7 +4,7 @@ use crate::cache::Cache;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 pub const INSTRUCTION_SIZE_BYTES: u64 = 2;
 
@@ -19,8 +19,11 @@ pub const WINDOW_HEIGHTu16: u16 = 32;
 pub const WINDOW_WIDTHusize: usize = WINDOW_WIDTHu16 as usize;
 #[allow(non_upper_case_globals)]
 pub const WINDOW_HEIGHTusize: usize = WINDOW_HEIGHTu16 as usize;
+#[allow(non_upper_case_globals)]
+pub const WINDOW_SIZEu16: u16 = WINDOW_WIDTHu16 * WINDOW_HEIGHTu16;
+#[allow(non_upper_case_globals)]
+pub const WINDOW_SIZEusize: usize = WINDOW_SIZEu16 as usize;
 
-pub const FACTOR: usize = 10;
 pub const AMOUNT_KEYS: usize = 16;
 
 pub const SPRITES: [u8; 16 * 5] = [
@@ -65,7 +68,7 @@ pub struct Chip8State {
     pub sp: u64,
     pub stack: [u64; Chip8::MAX_AMOUNT_STACK],
     pub window: Window,
-    pub fb: Vec<bool>,
+    pub fb: [bool; WINDOW_SIZEusize],
     pub keys: [bool; AMOUNT_KEYS],
     pub tick: Instant,
     pub help_regs: [u64; Chip8::AMOUNT_REGISTERS],
@@ -101,8 +104,8 @@ impl Chip8 {
 
         let window = Window::new(
             "RIP-8",
-            WINDOW_WIDTHusize * FACTOR,
-            WINDOW_HEIGHTusize * FACTOR,
+            WINDOW_WIDTHusize,
+            WINDOW_HEIGHTusize,
             WindowOptions::default(),
         )
         .unwrap();
@@ -118,7 +121,7 @@ impl Chip8 {
                 sp: 0,
                 stack: [0; Chip8::MAX_AMOUNT_STACK],
                 should_run: true,
-                fb: [false; WINDOW_WIDTHusize * WINDOW_HEIGHTusize * FACTOR].to_vec(),
+                fb: [false; WINDOW_SIZEusize],
                 keys: [false; AMOUNT_KEYS],
                 help_regs: [0; Self::AMOUNT_REGISTERS],
                 tick: Instant::now(),
@@ -147,24 +150,26 @@ impl Chip8 {
     pub fn refresh_window(&mut self) {
         let mut state = self.state.borrow_mut();
 
-        let mut buffer: Vec<u32> = [0; WINDOW_HEIGHTusize * WINDOW_WIDTHusize * FACTOR].to_vec();
+        let mut buffer: Vec<u32> = [0; WINDOW_SIZEusize].to_vec();
         for entry in state.fb.clone().into_iter().enumerate() {
             let (index, should_place) = entry;
 
             if should_place {
-                for fb_index in index * FACTOR..(index + 1) * FACTOR {
-                    buffer[fb_index] = PIXEL_DRAW;
-                }
+                buffer[index] = PIXEL_DRAW;
             }
         }
 
-        state.window.update_with_buffer(
-            &buffer,
-            WINDOW_WIDTHusize * FACTOR,
-            WINDOW_HEIGHTusize,
-        ).unwrap();
+        state
+            .window
+            .update_with_buffer(&buffer, WINDOW_WIDTHusize, WINDOW_HEIGHTusize)
+            .unwrap();
 
-        if let Some(key) = state.window.get_keys_pressed(minifb::KeyRepeat::No).into_iter().next() {
+        if let Some(key) = state
+            .window
+            .get_keys_pressed(minifb::KeyRepeat::No)
+            .into_iter()
+            .next()
+        {
             state.should_run = key == Key::Q;
         }
     }
@@ -172,12 +177,20 @@ impl Chip8 {
     pub fn refresh_keys(&mut self) {
         let mut state = self.state.borrow_mut();
 
-        state.window.get_keys_pressed(minifb::KeyRepeat::No).into_iter().for_each(|key: Key| {
-            state.keys[key_value(key) as usize] = true;
-        });
-        state.window.get_keys_released().into_iter().for_each(|key: Key| {
-            state.keys[key_value(key) as usize] = false;
-        });
+        state
+            .window
+            .get_keys_pressed(minifb::KeyRepeat::No)
+            .into_iter()
+            .for_each(|key: Key| {
+                state.keys[key_value(key) as usize] = true;
+            });
+        state
+            .window
+            .get_keys_released()
+            .into_iter()
+            .for_each(|key: Key| {
+                state.keys[key_value(key) as usize] = false;
+            });
 
         state.should_run = !state.keys[key_value(Key::A) as usize];
     }
@@ -206,4 +219,3 @@ fn key_value(key: Key) -> u8 {
         _ => unreachable!("Unknown key: {:?}", key),
     }
 }
-
